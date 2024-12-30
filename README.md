@@ -1,96 +1,63 @@
-# BDM Design UI
+# Keboola BDM Designer
 
-A user-friendly UI application for designing Business Data Models (BDM) using data from Keboola Storage API.
+A visual tool for designing Business Data Models (BDM) in Keboola Connection. This application allows users to create and manage data model diagrams by selecting tables from their Keboola project and defining relationships between them.
 
-## Features
+## Current Features
 
-- Connect to Keboola Storage API
-- Visual modeling of data relationships
-- Drag-and-drop interface
-- Support for Objects, Properties, and Values
-- Save and load BDM designs
-- Group tables for better organization
-- Add comments to tables and relationships
+- ✅ Authentication with Keboola Connection API
+- ✅ Loading and displaying tables from Keboola Storage
+- ✅ Interactive canvas for table placement and relationship design
+- ✅ Table details panel showing:
+  - Column names
+  - Data types
+  - Primary key indicators
+  - Column descriptions
+  - Table descriptions (from KBC.description metadata)
+- ✅ Canvas controls:
+  - Zoom in/out
+  - Fit to view
+  - Grid layout
+- ✅ Edge creation between tables
+- ✅ State persistence (layout and relationships are preserved)
 
-## Prerequisites
+## Pending Requirements
 
-- Node.js (v16 or higher)
-- npm (v7 or higher)
-- A Keboola Storage API token
-- A Keboola instance URL
+- [ ] Export functionality for the BDM design
+- [ ] Import existing BDM designs
+- [ ] Ability to add custom descriptions and metadata
+- [ ] Advanced edge properties (relationship types, cardinality)
+- [ ] Undo/redo functionality
+- [ ] Multiple BDM diagram support
+- [ ] Collaboration features
+- [ ] Version control for BDM designs
 
-## Installation
+## Getting Started
 
-1. Clone the repository:
-```bash
-git clone <repository-url>
-cd bdm-design-ui
-```
-
+1. Clone the repository
 2. Install dependencies:
-```bash
-npm install
-```
+   ```bash
+   npm install
+   ```
+3. Start the development server:
+   ```bash
+   npm run dev
+   ```
+4. Open your browser and navigate to the displayed URL
+5. Enter your Keboola Connection API token and instance URL
 
 ## Development
 
-To start the development server:
-
-```bash
-npm run dev
-```
-
-The application will be available at `http://localhost:5173`
-
-## Building for Production
-
-To create a production build:
-
-```bash
-npm run build
-```
-
-The build output will be in the `dist` directory.
-
-## Usage
-
-1. When you first open the application, you'll be prompted to enter your Keboola Storage API credentials:
-   - API Token
-   - Instance URL (e.g., https://connection.keboola.com)
-
-2. After connecting, you'll see the main BDM designer interface:
-   - Left panel: Available tables from Keboola
-   - Main canvas: BDM design area
-   - Right panel: Properties and settings for selected items
-
-3. To create your BDM:
-   - Drag tables from the left panel onto the canvas
-   - Create relationships by dragging between tables
-   - Use the right panel to edit properties and add comments
-   - Group related tables by selecting them and using the group function
-
-4. Save your BDM design using the save button in the toolbar
-
-## Project Structure
-
-```
-src/
-  ├── components/       # React components
-  ├── services/        # API and service functions
-  ├── store/           # State management
-  ├── types/           # TypeScript type definitions
-  ├── hooks/           # Custom React hooks
-  └── utils/           # Utility functions
-```
+The application is built using:
+- React
+- TypeScript
+- Material-UI
+- Cytoscape.js for graph visualization
+- Vite as the build tool
 
 ## Contributing
 
 1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add some amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
-
-## License
-
-This project is licensed under the MIT License - see the LICENSE file for details. 
+2. Create your feature branch
+3. Commit your changes
+4. Push to the branch
+5. Create a Pull Request 
