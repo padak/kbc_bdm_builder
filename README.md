@@ -4,32 +4,72 @@ A visual tool for designing Business Data Models (BDM) in Keboola Connection. Th
 
 ## Current Features
 
-- ✅ Authentication with Keboola Connection API
-- ✅ Loading and displaying tables from Keboola Storage
-- ✅ Interactive canvas for table placement and relationship design
-- ✅ Table details panel showing:
-  - Column names
-  - Data types
-  - Primary key indicators
-  - Column descriptions
-  - Table descriptions (from KBC.description metadata)
-- ✅ Canvas controls:
-  - Zoom in/out
-  - Fit to view
-  - Grid layout
-- ✅ Edge creation between tables
-- ✅ State persistence (layout and relationships are preserved)
+- ✅ Authentication & Data Connection:
+  - Keboola Connection API integration
+  - Support for different Keboola instances
+  - Secure credential storage
+  - API token validation
+
+- ✅ Table Management:
+  - Load and display tables from Keboola Storage
+  - Display table metadata from API
+  - Table search functionality
+  - Table details panel showing:
+    - Column names and data types
+    - Primary key indicators
+    - Column descriptions
+    - Table descriptions (from KBC.description metadata)
+
+- ✅ Visual Design:
+  - Interactive canvas for table placement
+  - Drag-and-drop functionality
+  - Canvas controls:
+    - Zoom in/out
+    - Fit to view
+    - Grid layout
+  - Responsive layout
+  - Right panel for table details
+
+- ✅ Relationship Management:
+  - Basic edge creation between tables
+  - Visual connection indicators
+  - Edge persistence
+
+- ✅ State Management:
+  - Save and restore canvas state
+  - Preserve table positions
+  - Maintain relationships between sessions
 
 ## Pending Requirements
 
-- [ ] Export functionality for the BDM design
-- [ ] Import existing BDM designs
-- [ ] Ability to add custom descriptions and metadata
-- [ ] Advanced edge properties (relationship types, cardinality)
-- [ ] Undo/redo functionality
-- [ ] Multiple BDM diagram support
-- [ ] Collaboration features
-- [ ] Version control for BDM designs
+- [ ] Advanced Relationship Features:
+  - Relationship types (Parent-Child, M:N)
+  - Cardinality indicators
+  - Edge descriptions and metadata
+  - AI-powered relationship suggestions
+
+- [ ] Data Model Documentation:
+  - Custom descriptions for tables and columns
+  - Relationship documentation
+  - Export documentation in various formats
+
+- [ ] Import/Export:
+  - Export BDM design to JSON
+  - Import existing BDM designs
+  - Export to visual formats (PDF, PNG)
+
+- [ ] Collaboration Features:
+  - Multi-user support
+  - Comments and annotations
+  - Version control
+  - Design sharing
+
+- [ ] Advanced Features:
+  - Undo/redo functionality
+  - Multiple BDM diagram support
+  - Table grouping
+  - Advanced search and filtering
+  - Template support
 
 ## Getting Started
 
@@ -48,9 +88,8 @@ A visual tool for designing Business Data Models (BDM) in Keboola Connection. Th
 ## Development
 
 The application is built using:
-- React
-- TypeScript
-- Material-UI
+- React with TypeScript for type safety
+- Material-UI for consistent design
 - Cytoscape.js for graph visualization
 - Vite as the build tool
 
