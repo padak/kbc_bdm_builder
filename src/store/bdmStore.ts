@@ -1,48 +1,68 @@
 import { create } from 'zustand';
-import { KeboolaBucket, KeboolaTable } from '../services/keboolaApi';
+import { KeboolaTable, KeboolaBucket } from '../services/keboolaApi';
 
 interface BDMStore {
+  // Connection state
   isConnected: boolean;
-  buckets: KeboolaBucket[];
-  selectedBucket: KeboolaBucket | null;
-  tables: KeboolaTable[];
-  selectedTable: KeboolaTable | null;
-  bdmTables: KeboolaTable[];
+  setConnection: (connected: boolean) => void;
+
+  // Loading and error states
   isLoading: boolean;
   error: string | null;
-  setConnection: (isConnected: boolean) => void;
+  setLoading: (loading: boolean) => void;
+  setError: (error: string | null) => void;
+
+  // Buckets
+  buckets: KeboolaBucket[];
+  selectedBucket: KeboolaBucket | null;
   setBuckets: (buckets: KeboolaBucket[]) => void;
   setSelectedBucket: (bucket: KeboolaBucket | null) => void;
+
+  // Tables
+  tables: KeboolaTable[];
+  bdmTables: KeboolaTable[];
   setTables: (tables: KeboolaTable[]) => void;
-  setSelectedTable: (table: KeboolaTable | null) => void;
   addToBDM: (table: KeboolaTable) => void;
   removeFromBDM: (tableId: string) => void;
-  setLoading: (isLoading: boolean) => void;
-  setError: (error: string | null) => void;
+  updateTable: (tableId: string, updates: Partial<KeboolaTable>) => void;
+  removeTable: (tableId: string) => void;
+  currentBDM: KeboolaTable | null;
 }
 
 export const useBDMStore = create<BDMStore>((set) => ({
+  // Connection state
   isConnected: false,
-  buckets: [],
-  selectedBucket: null,
-  tables: [],
-  selectedTable: null,
-  bdmTables: [],
+  setConnection: (connected) => set({ isConnected: connected }),
+
+  // Loading and error states
   isLoading: false,
   error: null,
-  setConnection: (isConnected) => set({ isConnected }),
-  setBuckets: (buckets) => set({ buckets: buckets || [] }),
-  setSelectedBucket: (bucket) => set({ selectedBucket: bucket }),
-  setTables: (tables) => set({ tables: tables || [] }),
-  setSelectedTable: (table) => set({ selectedTable: table }),
-  addToBDM: (table) =>
-    set((state) => ({
-      bdmTables: [...state.bdmTables, { ...table }],
-    })),
-  removeFromBDM: (tableId) =>
-    set((state) => ({
-      bdmTables: state.bdmTables.filter((t) => t.id !== tableId),
-    })),
-  setLoading: (isLoading) => set({ isLoading }),
+  setLoading: (loading) => set({ isLoading: loading }),
   setError: (error) => set({ error }),
+
+  // Buckets
+  buckets: [],
+  selectedBucket: null,
+  setBuckets: (buckets) => set({ buckets }),
+  setSelectedBucket: (bucket) => set({ selectedBucket: bucket }),
+
+  // Tables
+  tables: [],
+  bdmTables: [],
+  currentBDM: null,
+  setTables: (tables) => set({ tables }),
+  addToBDM: (table) => set((state) => ({
+    bdmTables: [...state.bdmTables, table],
+  })),
+  removeFromBDM: (tableId) => set((state) => ({
+    bdmTables: state.bdmTables.filter((t) => t.id !== tableId),
+  })),
+  updateTable: (tableId, updates) => set((state) => ({
+    bdmTables: state.bdmTables.map((table) =>
+      table.id === tableId ? { ...table, ...updates } : table
+    ),
+  })),
+  removeTable: (tableId) => set((state) => ({
+    bdmTables: state.bdmTables.filter((t) => t.id !== tableId),
+  })),
 })); 

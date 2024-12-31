@@ -1,9 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { ThemeProvider, createTheme, CssBaseline, Box, CircularProgress, Typography } from '@mui/material';
 import { KeboolaConfigDialog } from './components/KeboolaConfig';
 import { BDMDesigner } from './components/BDMDesigner';
 import { useBDMStore } from './store/bdmStore';
-import { keboolaApi } from './services/keboolaApi';
 
 const theme = createTheme({
   palette: {
@@ -26,7 +25,7 @@ const theme = createTheme({
 
 function App() {
   const { isConnected, buckets, error } = useBDMStore();
-  const [configOpen, setConfigOpen] = useState(!isConnected);
+  const [configOpen, setConfigOpen] = React.useState(!isConnected);
 
   const renderContent = () => {
     if (!isConnected) {

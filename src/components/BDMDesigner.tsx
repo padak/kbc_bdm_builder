@@ -231,20 +231,11 @@ export const BDMDesigner: React.FC = () => {
                               <IconButton
                                 edge="end"
                                 size="small"
-                                onClick={async () => {
+                                onClick={() => {
                                   if (isInBDM) {
                                     removeFromBDM(table.id);
                                   } else {
-                                    try {
-                                      setLoading(true);
-                                      const tableDetail = await keboolaApi.getTableDetail(table.id);
-                                      addToBDM(tableDetail);
-                                    } catch (err) {
-                                      console.error('Failed to fetch table details:', err);
-                                      setError('Failed to fetch table details');
-                                    } finally {
-                                      setLoading(false);
-                                    }
+                                    handleTableAdd(table);
                                   }
                                 }}
                                 disabled={isLoading}

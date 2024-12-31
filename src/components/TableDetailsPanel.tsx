@@ -16,7 +16,7 @@ import {
   TableRow,
 } from '@mui/material';
 import { Close as CloseIcon } from '@mui/icons-material';
-import { KeboolaTable, KeboolaColumn, KeboolaMetadata } from '../services/keboolaApi';
+import { KeboolaTable, KeboolaMetadata } from '../services/keboolaApi';
 
 interface TableDetailsPanelProps {
   table: KeboolaTable | null;

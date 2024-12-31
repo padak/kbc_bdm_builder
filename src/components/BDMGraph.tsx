@@ -80,18 +80,17 @@ const RelationshipDialog: React.FC<RelationshipDialogProps> = ({
   );
 };
 
-export const BDMGraph: React.FC<BDMGraphProps> = ({ tables, onTableSelect }) => {
+export const BDMGraph: React.FC<BDMGraphProps> = ({ tables, onTableSelect, isDetailsPanelOpen = false }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [relationshipSource, setRelationshipSource] = useState<string | null>(null);
   const [relationshipTarget, setRelationshipTarget] = useState<string | null>(null);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [selectedEdge, setSelectedEdge] = useState<string | null>(null);
-  const [isInitialized, setIsInitialized] = useState(false);
   const [selectedTable, setSelectedTable] = useState<KeboolaTable | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
-  const { addTable, addRelationship, updateRelationship, removeElement, fit, zoomIn, zoomOut, applyGridLayout } = useCytoscape({
+  const { addTable, addRelationship, updateRelationship, fit, zoomIn, zoomOut, applyGridLayout } = useCytoscape({
     container: containerRef.current,
     onNodeSelect: async (node) => {
       if (!node) {
@@ -107,15 +106,12 @@ export const BDMGraph: React.FC<BDMGraphProps> = ({ tables, onTableSelect }) => 
         try {
           setIsLoading(true);
           const tableDetail = await keboolaApi.getTableDetail(table.id);
-          console.log('Table detail received:', tableDetail);
-          console.log('Columns:', tableDetail.columns);
           setSelectedTable(tableDetail);
           if (onTableSelect) {
             onTableSelect(tableDetail);
           }
         } catch (error) {
           console.error('Failed to fetch table details:', error);
-          // Fallback to basic table info if detail fetch fails
           setSelectedTable(table);
           if (onTableSelect) {
             onTableSelect(table);
@@ -126,7 +122,6 @@ export const BDMGraph: React.FC<BDMGraphProps> = ({ tables, onTableSelect }) => 
       }
     },
     onEdgeSelect: () => {
-      // Clear table selection when an edge is selected
       setSelectedTable(null);
       if (onTableSelect) {
         onTableSelect(null);
@@ -143,23 +138,16 @@ export const BDMGraph: React.FC<BDMGraphProps> = ({ tables, onTableSelect }) => 
     },
   });
 
-  // Initialize Cytoscape when container is ready
-  React.useEffect(() => {
-    if (containerRef.current && !isInitialized) {
-      setIsInitialized(true);
-    }
-  }, [containerRef.current]);
-
   // Add tables whenever they change
   React.useEffect(() => {
-    if (isInitialized && tables.length > 0) {
+    if (tables.length > 0) {
       console.log('Adding tables:', tables.length);
       tables.forEach((table) => {
         addTable(table);
       });
       fit();
     }
-  }, [isInitialized, tables, addTable, fit]);
+  }, [tables, addTable, fit]);
 
   const handleCreateRelationship = (type: RelationType) => {
     if (relationshipSource && relationshipTarget) {
@@ -188,6 +176,8 @@ export const BDMGraph: React.FC<BDMGraphProps> = ({ tables, onTableSelect }) => 
           bgcolor: 'background.default',
           border: '1px solid #e0e0e0',
           position: 'relative',
+          pr: isDetailsPanelOpen ? '400px' : 0,
+          transition: 'padding-right 0.3s ease',
         }}
       />
       <Paper
@@ -195,7 +185,7 @@ export const BDMGraph: React.FC<BDMGraphProps> = ({ tables, onTableSelect }) => 
         sx={{
           position: 'fixed',
           bottom: 16,
-          right: selectedTable ? 416 : 16,
+          right: isDetailsPanelOpen ? 416 : 16,
           display: 'flex',
           flexDirection: 'column',
           gap: 1,

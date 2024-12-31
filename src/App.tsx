@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+/** @jsxImportSource react */
+import { useState } from 'react';
 import { ThemeProvider, createTheme, CssBaseline, Box, CircularProgress, Typography } from '@mui/material';
 import { KeboolaConfigDialog } from './components/KeboolaConfig';
 import { BDMDesigner } from './components/BDMDesigner';
@@ -31,7 +32,7 @@ function App() {
     if (!isConnected) {
       return (
         <KeboolaConfigDialog
-          open={true}
+          open={configOpen}
           onClose={() => setConfigOpen(false)}
         />
       );

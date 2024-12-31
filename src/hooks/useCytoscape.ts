@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import cytoscape, { Core, NodeSingular, EdgeSingular, Stylesheet } from 'cytoscape';
+import cytoscape, { Core, NodeSingular, EdgeSingular } from 'cytoscape';
 import { KeboolaTable } from '../services/keboolaApi';
 import { RelationType } from '../types/bdm';
 import edgehandles from 'cytoscape-edgehandles';
@@ -11,208 +11,248 @@ declare module 'cytoscape' {
   }
 }
 
-// Register the extension only once, globally
+// Register the extension
 cytoscape.use(edgehandles);
 
 interface UseCytoscapeOptions {
-  container: HTMLDivElement | null;
-  onNodeSelect?: (node: NodeSingular | null) => void;
+  container: HTMLElement | null;
+  onNodeSelect?: (node: NodeSingular) => void;
   onEdgeSelect?: (edge: EdgeSingular) => void;
   onCreateEdge?: (sourceId: string, targetId: string) => void;
   onEdgeDoubleClick?: (edgeId: string) => void;
 }
 
-export const useCytoscape = ({ 
-  container, 
-  onNodeSelect, 
-  onEdgeSelect,
-  onCreateEdge,
-  onEdgeDoubleClick 
-}: UseCytoscapeOptions) => {
+interface NodePosition {
+  x: number;
+  y: number;
+}
+
+interface NodeData {
+  position: NodePosition;
+  [key: string]: any;
+}
+
+export const useCytoscape = ({ container, onNodeSelect, onEdgeSelect, onCreateEdge, onEdgeDoubleClick }: UseCytoscapeOptions) => {
   const cyRef = useRef<Core | null>(null);
   const ehRef = useRef<any>(null);
-  const edgeSourceRef = useRef<string | null>(null);
-  const isShiftPressed = useRef<boolean>(false);
-  const isInitialized = useRef<boolean>(false);
-  const spacePressed = useRef<boolean>(false);
+  const nodesRef = useRef<{ [key: string]: NodeData }>({});
+  const isDrawMode = useRef(false);
 
   useEffect(() => {
     if (!container) return;
 
-    cyRef.current = cytoscape({
-      container,
-      style: [
-        {
-          selector: 'node',
-          style: {
-            backgroundColor: '#fff',
-            borderColor: '#2196f3',
-            borderWidth: 2,
-            label: 'data(label)',
-            textValign: 'center',
-            textHalign: 'center',
-            width: 180,
-            height: 60,
-            fontSize: 12,
-            textWrap: 'wrap',
-            textMaxWidth: 160,
-            shape: 'rectangle',
-            padding: 10,
-          } as any,
+    if (!cyRef.current) {
+      cyRef.current = cytoscape({
+        container,
+        style: [
+          {
+            selector: 'node',
+            style: {
+              'background-color': '#fff',
+              'border-color': '#2196f3',
+              'border-width': 2,
+              'label': 'data(label)',
+              'text-valign': 'center',
+              'text-halign': 'center',
+              'width': 180,
+              'height': 60,
+              'font-size': '12px',
+              'text-wrap': 'wrap',
+              'text-max-width': '160px',
+              'shape': 'rectangle',
+            },
+          },
+          {
+            selector: 'node:selected',
+            style: {
+              'border-color': '#f50057',
+              'border-width': 3,
+            },
+          },
+          {
+            selector: 'edge',
+            style: {
+              'width': 2,
+              'line-color': '#666',
+              'target-arrow-color': '#666',
+              'target-arrow-shape': 'triangle',
+              'curve-style': 'bezier',
+              'label': 'data(label)',
+              'font-size': '10px',
+              'text-rotation': 'autorotate',
+            },
+          },
+          {
+            selector: 'edge:selected',
+            style: {
+              'line-color': '#f50057',
+              'target-arrow-color': '#f50057',
+              'width': 3,
+            },
+          },
+          {
+            selector: '.eh-handle',
+            style: {
+              'background-color': '#4caf50',
+              'width': 12,
+              'height': 12,
+              'shape': 'ellipse',
+              'overlay-opacity': 0,
+              'border-width': 12,
+              'border-opacity': 0.5,
+              'border-color': '#4caf50',
+            },
+          },
+          {
+            selector: '.eh-hover',
+            style: {
+              'background-color': '#4caf50',
+            },
+          },
+          {
+            selector: '.eh-source',
+            style: {
+              'border-color': '#4caf50',
+              'border-width': 3,
+            },
+          },
+          {
+            selector: '.eh-target',
+            style: {
+              'border-color': '#4caf50',
+              'border-width': 3,
+            },
+          },
+          {
+            selector: '.eh-preview, .eh-ghost-edge',
+            style: {
+              'line-color': '#4caf50',
+              'target-arrow-color': '#4caf50',
+              'source-arrow-color': '#4caf50',
+              'target-arrow-shape': 'triangle',
+            },
+          },
+        ],
+        layout: {
+          name: 'grid',
+          rows: 2,
         },
-        {
-          selector: 'node:selected',
-          style: {
-            borderColor: '#f50057',
-            borderWidth: 3,
-          } as any,
-        },
-        {
-          selector: 'edge',
-          style: {
-            width: 2,
-            lineColor: '#666',
-            targetArrowColor: '#666',
-            targetArrowShape: 'triangle',
-            curveStyle: 'bezier',
-            fontSize: 10,
-            textRotation: 'autorotate',
-          } as any,
-        },
-        {
-          selector: 'edge[label]',
-          style: {
-            label: 'data(label)',
-            visibility: (ele: EdgeSingular) => ele.data('label') === 'undefined' ? 'hidden' : 'visible',
-          } as any,
-        },
-        {
-          selector: 'edge:selected',
-          style: {
-            lineColor: '#f50057',
-            targetArrowColor: '#f50057',
-            width: 3,
-          } as any,
-        },
-        {
-          selector: '.eh-handle',
-          style: {
-            'background-color': '#4caf50',
-            'width': 12,
-            'height': 12,
-            'shape': 'ellipse',
-            'overlay-opacity': 0,
-            'border-width': 12,
-            'border-opacity': 0.5,
-            'border-color': '#4caf50',
-          } as any,
-        },
-        {
-          selector: '.eh-hover',
-          style: {
-            'background-color': '#4caf50',
-          } as any,
-        },
-        {
-          selector: '.eh-source',
-          style: {
-            'border-color': '#4caf50',
-            'border-width': 3,
-          } as any,
-        },
-        {
-          selector: '.eh-target',
-          style: {
-            'border-color': '#4caf50',
-            'border-width': 3,
-          } as any,
-        },
-        {
-          selector: '.eh-preview, .eh-ghost-edge',
-          style: {
-            'line-color': '#4caf50',
-            'target-arrow-color': '#4caf50',
-            'source-arrow-color': '#4caf50',
-            'target-arrow-shape': 'triangle',
-          } as any,
-        },
-      ],
-      layout: {
-        name: 'grid',
-        rows: 2,
-      },
-      wheelSensitivity: 0.2,
-    });
+        wheelSensitivity: 0.2,
+        boxSelectionEnabled: true,
+        selectionType: 'single',
+      });
 
-    const cy = cyRef.current;
-
-    // Handle node selection
-    cy.on('tap', 'node', (event) => {
-      const node = event.target;
-      console.log('Node selected:', node.id());
+      // Event handlers
       if (onNodeSelect) {
-        onNodeSelect(node);
+        cyRef.current.on('tap', 'node', (event) => {
+          if (!isDrawMode.current) {
+            onNodeSelect(event.target);
+          }
+        });
       }
-    });
 
-    // Handle edge selection
-    cy.on('tap', 'edge', (event) => {
-      const edge = event.target;
-      console.log('Edge selected:', edge.id());
       if (onEdgeSelect) {
-        onEdgeSelect(edge);
+        cyRef.current.on('tap', 'edge', (event) => {
+          if (!isDrawMode.current) {
+            onEdgeSelect(event.target);
+          }
+        });
       }
-    });
 
-    // Handle background tap to clear selection
-    cy.on('tap', (event) => {
-      if (event.target === cy) {
-        console.log('Background clicked, clearing selection');
-        if (onNodeSelect) {
-          onNodeSelect(null);
+      // Handle shift key events
+      const handleKeyDown = (event: KeyboardEvent) => {
+        console.log('Key down:', event.key);
+        if (event.key === 'Shift' && !isDrawMode.current) {
+          console.log('Entering draw mode');
+          isDrawMode.current = true;
+          if (ehRef.current) {
+            console.log('Enabling edge handles');
+            ehRef.current.enable();
+            console.log('Edge handles enabled:', ehRef.current.enabled());
+          } else {
+            console.error('Edge handles not initialized');
+          }
+          if (cyRef.current) {
+            cyRef.current.nodes().ungrabify();
+            console.log('Nodes ungrabified');
+          }
         }
-      }
-    });
+      };
 
-    // Handle edge creation
-    cy.on('ehcomplete', (event, sourceNode, targetNode, addedEles) => {
-      if (onCreateEdge) {
-        onCreateEdge(sourceNode.id(), targetNode.id());
-      }
-    });
+      const handleKeyUp = (event: KeyboardEvent) => {
+        console.log('Key up:', event.key);
+        if (event.key === 'Shift') {
+          console.log('Exiting draw mode');
+          isDrawMode.current = false;
+          if (ehRef.current) {
+            console.log('Disabling edge handles');
+            ehRef.current.disable();
+            console.log('Edge handles disabled:', !ehRef.current.enabled());
+          }
+          if (cyRef.current) {
+            cyRef.current.nodes().grabify();
+            console.log('Nodes grabified');
+          }
+        }
+      };
 
-    // Handle edge double click
-    cy.on('dblclick', 'edge', (event) => {
-      const edge = event.target;
-      if (onEdgeDoubleClick) {
-        onEdgeDoubleClick(edge.id());
-      }
-    });
+      window.addEventListener('keydown', handleKeyDown);
+      window.addEventListener('keyup', handleKeyUp);
 
-    // Initialize edge handles
-    ehRef.current = cy.edgehandles({
-      snap: true,
-      noEdgeEventsInDraw: true,
-      disableBrowserGestures: true,
-      handleNodes: 'node',
-      handlePosition: 'right middle',
-      handleInDrawMode: false,
-      edgeType: () => 'straight',
-      loopAllowed: () => false,
-      nodeLoopOffset: -50,
-      edgeParams: {
-        style: {
-          'curve-style': 'bezier',
-          'target-arrow-shape': 'triangle',
+      // Initialize edge handles with draw mode disabled by default
+      ehRef.current = cyRef.current.edgehandles({
+        snap: true,
+        noEdgeEventsInDraw: true,
+        disableBrowserGestures: true,
+        handleNodes: 'node',
+        handlePosition: 'right middle',
+        handleInDrawMode: false,
+        edgeType: () => 'straight',
+        loopAllowed: () => false,
+        nodeLoopOffset: -50,
+        complete: (sourceNode: any, targetNode: any) => {
+          console.log('Edge creation completed:', { sourceNode, targetNode });
+          if (onCreateEdge) {
+            onCreateEdge(sourceNode.id(), targetNode.id());
+          }
         },
-      },
-    });
+        start: (sourceNode: any) => {
+          console.log('Edge creation started from:', sourceNode);
+        },
+        stop: (sourceNode: any) => {
+          console.log('Edge creation stopped at:', sourceNode);
+        },
+        edgeParams: {
+          style: {
+            'curve-style': 'bezier',
+            'target-arrow-shape': 'triangle',
+          },
+        },
+      });
+
+      console.log('Edge handles initialized');
+      ehRef.current.disable();
+      console.log('Edge handles disabled initially');
+
+      // Enable node dragging
+      cyRef.current.on('dragfree', 'node', (event) => {
+        const node = event.target;
+        const id = node.id();
+        const position = node.position();
+        nodesRef.current[id] = { ...nodesRef.current[id], position };
+      });
+
+      return () => {
+        window.removeEventListener('keydown', handleKeyDown);
+        window.removeEventListener('keyup', handleKeyUp);
+      };
+    }
 
     return () => {
-      if (ehRef.current) {
-        ehRef.current.destroy();
+      if (cyRef.current) {
+        cyRef.current.destroy();
+        cyRef.current = null;
       }
-      cy.destroy();
     };
   }, [container, onNodeSelect, onEdgeSelect, onCreateEdge, onEdgeDoubleClick]);
 

@@ -23,8 +23,6 @@ export const BDMGraph: React.FC<BDMGraphProps> = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const {
     addTable,
-    addRelationship,
-    removeElement,
     fit,
     zoomIn,
     zoomOut,
