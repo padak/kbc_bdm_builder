@@ -21,12 +21,29 @@ import { Add as AddIcon, Remove as RemoveIcon, Search as SearchIcon } from '@mui
 import { useBDMStore } from '../store/bdmStore';
 import { BDMGraph } from './BDMGraph';
 import { keboolaApi, KeboolaBucket, KeboolaTable } from '../services/keboolaApi';
+import debug from '../utils/debug';
+import { DebugPanel } from './DebugPanel';
+
+// Force immediate logging
+console.error('%c[DEBUG-DESIGNER]', 'color: purple; font-weight: bold', 'BDMDesigner module loaded at', new Date().toISOString());
 
 const DRAWER_WIDTH = 300;
 
 export const BDMDesigner: React.FC = () => {
+  // Force immediate component logging
+  console.error('%c[DEBUG-DESIGNER]', 'color: purple; font-weight: bold', 'BDMDesigner component rendering at', new Date().toISOString());
+
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedTableDetails, setSelectedTableDetails] = useState<KeboolaTable | null>(null);
+  // Add debug state
+  const [debugLogs, setDebugLogs] = useState<string[]>([]);
+
+  // Debug log function
+  const addDebugLog = (message: string) => {
+    console.error('DEBUG:', message); // Direct console log
+    setDebugLogs(prev => [...prev, `${new Date().toISOString()} - ${message}`].slice(-10));
+  };
+
   const {
     buckets,
     selectedBucket,
@@ -45,30 +62,73 @@ export const BDMDesigner: React.FC = () => {
   } = useBDMStore();
 
   useEffect(() => {
+    debug.log('BDMDesigner mounted');
+    return () => debug.log('BDMDesigner unmounted');
+  }, []);
+
+  useEffect(() => {
     // Select first bucket by default if none is selected
     if (buckets.length > 0 && !selectedBucket) {
-      console.log('Selecting first bucket:', buckets[0]);
+      debug.log('Selecting first bucket:', buckets[0]);
       handleBucketSelect(buckets[0]);
     }
   }, [buckets, selectedBucket]);
 
-  const handleBucketSelect = async (bucket: KeboolaBucket | null) => {
-    if (!bucket || isLoading) return;
+  const handleBucketSelect = async (bucket: typeof selectedBucket) => {
+    // Immediate logging in the bucket selection handler
+    console.error('CLICK EVENT - Bucket selected:', bucket?.id);
     
-    console.log('Selecting bucket:', bucket);
+    if (!bucket || isLoading) {
+      console.error('CLICK EVENT - Bucket selection cancelled:', { bucket: bucket?.id, isLoading });
+      return;
+    }
+    
     setSelectedBucket(bucket);
     setError(null);
     setLoading(true);
     
     try {
-      // Fetch tables with full details
-      const fetchedTables = await keboolaApi.listTables(bucket.id);
-      console.log('Received tables with details:', fetchedTables);
+      console.error('CLICK EVENT - Fetching tables for bucket:', bucket.id);
+      // First get the list of tables
+      const basicTables = await keboolaApi.listTables(bucket.id);
+      console.error('CLICK EVENT - Basic tables fetched:', basicTables.map(t => t.id));
       
-      // Use the tables directly since they already have full details
-      setTables(fetchedTables);
+      // Then fetch full details for all tables in parallel
+      console.error('CLICK EVENT - Fetching details for tables');
+      const tablesWithDetails = await Promise.all(
+        basicTables.map(async (table) => {
+          try {
+            console.error('CLICK EVENT - Fetching details for table:', table.id);
+            return await keboolaApi.getTableDetail(table.id);
+          } catch (err) {
+            console.error('CLICK EVENT - Failed to fetch details for table:', table.id, err);
+            setError(`Failed to fetch details for table ${table.name}`);
+            return {
+              ...table,
+              columns: [],
+              definition: { columns: [], primaryKeysNames: [] }
+            };
+          }
+        })
+      );
+      
+      // Filter out tables that failed to load
+      const validTables = tablesWithDetails.filter(table => table.columns && table.columns.length > 0);
+      console.error('CLICK EVENT - Setting valid tables:', validTables.map(t => t.id));
+      setTables(validTables);
+      
+      if (validTables.length === 0) {
+        console.error('CLICK EVENT - No valid tables found');
+        setError('No valid tables found in the selected bucket');
+      } else if (validTables.length < basicTables.length) {
+        console.error('CLICK EVENT - Some tables failed to load:', {
+          valid: validTables.length,
+          total: basicTables.length
+        });
+        setError('Some tables failed to load completely');
+      }
     } catch (err) {
-      console.error('Error fetching tables:', err);
+      console.error('CLICK EVENT - Failed to fetch tables:', err);
       setError('Failed to fetch tables from the selected bucket');
       setTables([]);
     } finally {
@@ -77,13 +137,14 @@ export const BDMDesigner: React.FC = () => {
   };
 
   const handleDisconnect = () => {
-    // Clear all stored data
+    // Reset all state
     setConnection(false);
     setSelectedBucket(null);
     setTables([]);
-    setSelectedTableDetails(null);
     setBuckets([]);
+    setSelectedTableDetails(null);
     setError(null);
+    setLoading(false);
   };
 
   // Filter tables based on search query
@@ -97,13 +158,16 @@ export const BDMDesigner: React.FC = () => {
   });
 
   const handleTableAdd = async (table: KeboolaTable) => {
+    addDebugLog(`Adding table: ${table.id}`);
     try {
       setLoading(true);
+      addDebugLog(`Fetching details for table: ${table.id}`);
       const tableDetail = await keboolaApi.getTableDetail(table.id);
-      console.log('Adding table to BDM with details:', tableDetail);
+      addDebugLog(`Got table details: ${tableDetail.id}`);
       addToBDM(tableDetail);
+      addDebugLog(`Added to BDM: ${tableDetail.id}`);
     } catch (err) {
-      console.error('Failed to fetch table details:', err);
+      addDebugLog(`Error adding table: ${err}`);
       setError('Failed to fetch table details');
     } finally {
       setLoading(false);
@@ -111,17 +175,39 @@ export const BDMDesigner: React.FC = () => {
   };
 
   const handleTableSelect = async (table: KeboolaTable | null) => {
+    addDebugLog(`Selecting table: ${table?.id}`);
+    
     if (!table) {
+      addDebugLog('Clearing selected table');
       setSelectedTableDetails(null);
       return;
     }
 
     try {
       setLoading(true);
+      addDebugLog(`Fetching details for selected table: ${table.id}`);
       const tableDetail = await keboolaApi.getTableDetail(table.id);
+      addDebugLog(`Got details for selected table: ${tableDetail.id}`);
+      
       setSelectedTableDetails(tableDetail);
+      addDebugLog('Updated selected table details');
+      
+      const updatedTables = tables.map((t: KeboolaTable) => 
+        t.id === tableDetail.id ? tableDetail : t
+      );
+      setTables(updatedTables);
+      addDebugLog('Updated tables list');
+
+      const isInBDM = bdmTables.some(t => t.id === tableDetail.id);
+      addDebugLog(`Table in BDM: ${isInBDM}`);
+      
+      if (isInBDM) {
+        addDebugLog(`Updating BDM table: ${tableDetail.id}`);
+        addToBDM(tableDetail);
+        addDebugLog('BDM table updated');
+      }
     } catch (err) {
-      console.error('Failed to fetch table details:', err);
+      addDebugLog(`Error selecting table: ${err}`);
       setError('Failed to fetch table details');
       setSelectedTableDetails(table);
     } finally {
@@ -231,7 +317,10 @@ export const BDMDesigner: React.FC = () => {
                               <IconButton
                                 edge="end"
                                 size="small"
-                                onClick={() => {
+                                onClick={(e) => {
+                                  // Immediate logging in the click handler
+                                  console.error('CLICK EVENT - Add/Remove button clicked:', table.id);
+                                  e.stopPropagation(); // Prevent event bubbling
                                   if (isInBDM) {
                                     removeFromBDM(table.id);
                                   } else {
@@ -247,7 +336,12 @@ export const BDMDesigner: React.FC = () => {
                         >
                           <ListItemButton
                             selected={selectedTableDetails?.id === table.id}
-                            onClick={() => handleTableSelect(table)}
+                            onClick={(e) => {
+                              // Immediate logging in the click handler
+                              console.error('CLICK EVENT - Table clicked:', table.id);
+                              e.stopPropagation(); // Prevent event bubbling
+                              handleTableSelect(table);
+                            }}
                             disabled={isLoading}
                           >
                             <ListItemText
@@ -265,42 +359,40 @@ export const BDMDesigner: React.FC = () => {
           )}
         </Box>
       </Drawer>
+      <Box component="main" sx={{ flexGrow: 1, p: 3 }}>
+        <Toolbar />
+        <BDMGraph
+          tables={bdmTables}
+          onTableSelect={handleTableSelect}
+          isDetailsPanelOpen={!!selectedTableDetails}
+        />
+      </Box>
+      {/* Debug Panel */}
+      <DebugPanel
+        tables={tables}
+        bdmTables={bdmTables}
+        selectedTableDetails={selectedTableDetails}
+        isLoading={isLoading}
+        error={error}
+        debugLogs={debugLogs}
+      />
+
+      {/* Debug Counter - Always visible in top-right corner */}
       <Box
-        component="main"
         sx={{
-          flexGrow: 1,
-          height: '100%',
-          position: 'relative',
-          bgcolor: 'background.default',
-          p: 3,
+          position: 'fixed',
+          top: 0,
+          right: 0,
+          bgcolor: '#f50057',
+          color: 'white',
+          p: 1,
+          zIndex: 99999,
+          fontSize: '14px',
+          fontWeight: 'bold',
+          borderBottomLeftRadius: '4px',
         }}
       >
-        <Toolbar />
-        {bdmTables.length === 0 ? (
-          <Box
-            sx={{
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              justifyContent: 'center',
-              height: 'calc(100% - 64px)',
-              color: 'text.secondary',
-            }}
-          >
-            <Typography variant="h6" gutterBottom>
-              No tables in BDM
-            </Typography>
-            <Typography variant="body2">
-              Click the + button next to a table to add it to your BDM
-            </Typography>
-          </Box>
-        ) : (
-          <BDMGraph
-            tables={bdmTables}
-            onTableSelect={handleTableSelect}
-            isDetailsPanelOpen={selectedTableDetails !== null}
-          />
-        )}
+        🔍 Tables: {tables.length} | BDM: {bdmTables.length}
       </Box>
     </Box>
   );

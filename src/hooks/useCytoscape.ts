@@ -3,6 +3,7 @@ import cytoscape, { Core, NodeSingular, EdgeSingular } from 'cytoscape';
 import { KeboolaTable } from '../services/keboolaApi';
 import { RelationType } from '../types/bdm';
 import edgehandles from 'cytoscape-edgehandles';
+import debug from '../utils/debug';
 
 // Add type declaration for the edgehandles extension
 declare module 'cytoscape' {
@@ -16,8 +17,9 @@ cytoscape.use(edgehandles);
 
 interface UseCytoscapeOptions {
   container: HTMLElement | null;
-  onNodeSelect?: (node: NodeSingular) => void;
-  onEdgeSelect?: (edge: EdgeSingular) => void;
+  tables: KeboolaTable[];
+  onNodeSelect?: (node: NodeSingular | null) => void;
+  onEdgeSelect?: (edge: EdgeSingular | null) => void;
   onCreateEdge?: (sourceId: string, targetId: string) => void;
   onEdgeDoubleClick?: (edgeId: string) => void;
 }
@@ -32,16 +34,26 @@ interface NodeData {
   [key: string]: any;
 }
 
-export const useCytoscape = ({ container, onNodeSelect, onEdgeSelect, onCreateEdge, onEdgeDoubleClick }: UseCytoscapeOptions) => {
+export const useCytoscape = ({
+  container,
+  tables,
+  onNodeSelect,
+  onEdgeSelect,
+  onCreateEdge,
+  onEdgeDoubleClick,
+}: UseCytoscapeOptions) => {
   const cyRef = useRef<Core | null>(null);
   const ehRef = useRef<any>(null);
   const nodesRef = useRef<{ [key: string]: NodeData }>({});
   const isDrawMode = useRef(false);
 
   useEffect(() => {
+    debug.log('useCytoscape: Effect triggered', { hasContainer: !!container });
     if (!container) return;
 
+    debug.log('useCytoscape: Initializing with container');
     if (!cyRef.current) {
+      debug.log('useCytoscape: Creating new Cytoscape instance');
       cyRef.current = cytoscape({
         container,
         style: [
@@ -90,48 +102,6 @@ export const useCytoscape = ({ container, onNodeSelect, onEdgeSelect, onCreateEd
               'width': 3,
             },
           },
-          {
-            selector: '.eh-handle',
-            style: {
-              'background-color': '#4caf50',
-              'width': 12,
-              'height': 12,
-              'shape': 'ellipse',
-              'overlay-opacity': 0,
-              'border-width': 12,
-              'border-opacity': 0.5,
-              'border-color': '#4caf50',
-            },
-          },
-          {
-            selector: '.eh-hover',
-            style: {
-              'background-color': '#4caf50',
-            },
-          },
-          {
-            selector: '.eh-source',
-            style: {
-              'border-color': '#4caf50',
-              'border-width': 3,
-            },
-          },
-          {
-            selector: '.eh-target',
-            style: {
-              'border-color': '#4caf50',
-              'border-width': 3,
-            },
-          },
-          {
-            selector: '.eh-preview, .eh-ghost-edge',
-            style: {
-              'line-color': '#4caf50',
-              'target-arrow-color': '#4caf50',
-              'source-arrow-color': '#4caf50',
-              'target-arrow-shape': 'triangle',
-            },
-          },
         ],
         layout: {
           name: 'grid',
@@ -144,62 +114,37 @@ export const useCytoscape = ({ container, onNodeSelect, onEdgeSelect, onCreateEd
 
       // Event handlers
       if (onNodeSelect) {
-        cyRef.current.on('tap', 'node', (event) => {
-          if (!isDrawMode.current) {
-            onNodeSelect(event.target);
+        cyRef.current.on('tap', (event) => {
+          debug.log('useCytoscape: Tap event:', event.target.group());
+          
+          // If clicking on the background, clear selection
+          if (event.target === cyRef.current) {
+            debug.log('useCytoscape: Background clicked, clearing selection');
+            onNodeSelect(null);
+            return;
+          }
+          
+          // If clicking on a node
+          if (event.target.isNode()) {
+            debug.log('useCytoscape: Node clicked:', event.target.id());
+            if (!isDrawMode.current) {
+              onNodeSelect(event.target);
+            }
           }
         });
       }
 
       if (onEdgeSelect) {
         cyRef.current.on('tap', 'edge', (event) => {
+          debug.log('useCytoscape: Edge clicked:', event.target.id());
           if (!isDrawMode.current) {
             onEdgeSelect(event.target);
           }
         });
       }
 
-      // Handle shift key events
-      const handleKeyDown = (event: KeyboardEvent) => {
-        console.log('Key down:', event.key);
-        if (event.key === 'Shift' && !isDrawMode.current) {
-          console.log('Entering draw mode');
-          isDrawMode.current = true;
-          if (ehRef.current) {
-            console.log('Enabling edge handles');
-            ehRef.current.enable();
-            console.log('Edge handles enabled:', ehRef.current.enabled());
-          } else {
-            console.error('Edge handles not initialized');
-          }
-          if (cyRef.current) {
-            cyRef.current.nodes().ungrabify();
-            console.log('Nodes ungrabified');
-          }
-        }
-      };
-
-      const handleKeyUp = (event: KeyboardEvent) => {
-        console.log('Key up:', event.key);
-        if (event.key === 'Shift') {
-          console.log('Exiting draw mode');
-          isDrawMode.current = false;
-          if (ehRef.current) {
-            console.log('Disabling edge handles');
-            ehRef.current.disable();
-            console.log('Edge handles disabled:', !ehRef.current.enabled());
-          }
-          if (cyRef.current) {
-            cyRef.current.nodes().grabify();
-            console.log('Nodes grabified');
-          }
-        }
-      };
-
-      window.addEventListener('keydown', handleKeyDown);
-      window.addEventListener('keyup', handleKeyUp);
-
-      // Initialize edge handles with draw mode disabled by default
+      // Initialize edge handles
+      debug.log('useCytoscape: Initializing edge handles');
       ehRef.current = cyRef.current.edgehandles({
         snap: true,
         noEdgeEventsInDraw: true,
@@ -210,68 +155,60 @@ export const useCytoscape = ({ container, onNodeSelect, onEdgeSelect, onCreateEd
         edgeType: () => 'straight',
         loopAllowed: () => false,
         nodeLoopOffset: -50,
-        complete: (sourceNode: any, targetNode: any) => {
-          console.log('Edge creation completed:', { sourceNode, targetNode });
+        complete: (sourceNode: NodeSingular, targetNode: NodeSingular) => {
+          debug.log('useCytoscape: Edge creation completed:', { sourceNode: sourceNode.id(), targetNode: targetNode.id() });
           if (onCreateEdge) {
             onCreateEdge(sourceNode.id(), targetNode.id());
           }
         },
-        start: (sourceNode: any) => {
-          console.log('Edge creation started from:', sourceNode);
-        },
-        stop: (sourceNode: any) => {
-          console.log('Edge creation stopped at:', sourceNode);
-        },
-        edgeParams: {
-          style: {
-            'curve-style': 'bezier',
-            'target-arrow-shape': 'triangle',
-          },
-        },
       });
 
-      console.log('Edge handles initialized');
       ehRef.current.disable();
-      console.log('Edge handles disabled initially');
-
-      // Enable node dragging
-      cyRef.current.on('dragfree', 'node', (event) => {
-        const node = event.target;
-        const id = node.id();
-        const position = node.position();
-        nodesRef.current[id] = { ...nodesRef.current[id], position };
-      });
-
-      return () => {
-        window.removeEventListener('keydown', handleKeyDown);
-        window.removeEventListener('keyup', handleKeyUp);
-      };
     }
+
+    // Sync tables whenever they change
+    debug.log('useCytoscape: Initial sync of tables:', tables.map(t => t.id));
+    syncTables(tables);
 
     return () => {
       if (cyRef.current) {
+        debug.log('useCytoscape: Cleaning up');
         cyRef.current.destroy();
         cyRef.current = null;
       }
     };
-  }, [container, onNodeSelect, onEdgeSelect, onCreateEdge, onEdgeDoubleClick]);
+  }, [container]);
 
   const addTable = (table: KeboolaTable, position?: { x: number; y: number }) => {
     if (!cyRef.current) return;
     const cy = cyRef.current;
 
-    console.log('Adding table:', table.id);
+    debug.log('useCytoscape: Adding/Updating table:', table.id);
 
     // Check if the node already exists
     const existingNode = cy.getElementById(table.id);
     if (existingNode.length > 0) {
-      // Update existing node data
+      debug.log('useCytoscape: Updating existing node:', table.id);
+      // Update existing node data but maintain its position
+      const currentPosition = existingNode.position();
       existingNode.data({
+        id: table.id,
         label: table.displayName || table.name,
         columns: table.columns,
       });
+      existingNode.position(currentPosition);
+      // Save the current position
+      nodesRef.current[table.id] = { position: currentPosition };
       return;
     }
+
+    debug.log('useCytoscape: Creating new node:', table.id);
+    // Get saved position or generate a new one
+    const savedPosition = nodesRef.current[table.id]?.position;
+    const newPosition = position || savedPosition || {
+      x: Math.random() * 500 + 100,
+      y: Math.random() * 500 + 100,
+    };
 
     // Add new node
     cy.add({
@@ -281,12 +218,52 @@ export const useCytoscape = ({ container, onNodeSelect, onEdgeSelect, onCreateEd
         label: table.displayName || table.name,
         columns: table.columns,
       },
-      position: position || {
-        x: Math.random() * 500 + 100,
-        y: Math.random() * 500 + 100,
-      },
+      position: newPosition,
+    });
+
+    // Save the position
+    nodesRef.current[table.id] = { position: newPosition };
+  };
+
+  // Function to sync graph with current tables
+  const syncTables = (tables: KeboolaTable[]) => {
+    if (!cyRef.current) return;
+    const cy = cyRef.current;
+    debug.log('useCytoscape: Syncing tables:', tables.map(t => t.id));
+
+    // Get current nodes
+    const currentNodes = cy.nodes().map(node => node.id());
+    debug.log('useCytoscape: Current nodes:', currentNodes);
+
+    // Add or update nodes that should be in the graph
+    tables.forEach(table => {
+      debug.log('useCytoscape: Processing table:', table.id);
+      addTable(table);
+    });
+
+    // Remove nodes that shouldn't be in the graph
+    const tableIds = tables.map(t => t.id);
+    currentNodes.forEach(nodeId => {
+      if (!tableIds.includes(nodeId)) {
+        debug.log('useCytoscape: Removing node:', nodeId);
+        cy.getElementById(nodeId).remove();
+      }
     });
   };
+
+  // Effect to sync graph with tables prop
+  useEffect(() => {
+    if (!cyRef.current || !container) return;
+    
+    debug.log('useCytoscape: Tables changed, syncing graph');
+    debug.log('useCytoscape: Current tables:', tables.map(t => t.id));
+    
+    // Get current nodes in the graph
+    const currentNodes = cyRef.current.nodes().map(node => node.id());
+    debug.log('useCytoscape: Current nodes in graph:', currentNodes);
+    
+    syncTables(tables);
+  }, [tables]);
 
   const addRelationship = (
     sourceId: string,
@@ -305,13 +282,13 @@ export const useCytoscape = ({ container, onNodeSelect, onEdgeSelect, onCreateEd
 
     // If there are any existing edges, don't create a new one
     if (existingEdges.length > 0) {
-      console.log('Relationship already exists between these tables');
+      debug.log('Relationship already exists between these tables');
       return;
     }
 
     // Create new edge with the new type
     const edgeId = id || `${sourceId}-${targetId}-${type}`;
-    console.log('Adding relationship:', { sourceId, targetId, type, edgeId });
+    debug.log('Adding relationship:', { sourceId, targetId, type, edgeId });
     
     cy.add({
       group: 'edges',
@@ -331,7 +308,7 @@ export const useCytoscape = ({ container, onNodeSelect, onEdgeSelect, onCreateEd
     const edge = cy.getElementById(edgeId);
     if (edge.length > 0) {
       edge.data('label', newType);
-      console.log('Updated relationship:', { edgeId, newType });
+      debug.log('Updated relationship:', { edgeId, newType });
     }
   };
 

@@ -9,7 +9,7 @@ interface TablePropertiesProps {
 }
 
 export const TableProperties: React.FC<TablePropertiesProps> = ({ table }) => {
-  const { updateTable, removeTable } = useBDMStore();
+  const { updateTable, removeFromBDM } = useBDMStore();
 
   const handlePropertyChange = (property: keyof KeboolaTable, value: string) => {
     updateTable(table.id, { [property]: value });
@@ -22,7 +22,7 @@ export const TableProperties: React.FC<TablePropertiesProps> = ({ table }) => {
           Table Properties
         </Typography>
         <IconButton
-          onClick={() => removeTable(table.id)}
+          onClick={() => removeFromBDM(table.id)}
           size="small"
           color="error"
           title="Remove table"

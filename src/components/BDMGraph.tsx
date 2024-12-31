@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import {
   Box,
   Dialog,
@@ -25,6 +25,7 @@ import { useCytoscape } from '../hooks/useCytoscape';
 import { KeboolaTable, keboolaApi } from '../services/keboolaApi';
 import { RelationType } from '../types/bdm';
 import { TableDetailsPanel } from './TableDetailsPanel';
+import debug from '../utils/debug';
 
 interface BDMGraphProps {
   tables: KeboolaTable[];
@@ -90,10 +91,27 @@ export const BDMGraph: React.FC<BDMGraphProps> = ({ tables, onTableSelect, isDet
   const [selectedTable, setSelectedTable] = useState<KeboolaTable | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
-  const { addTable, addRelationship, updateRelationship, fit, zoomIn, zoomOut, applyGridLayout } = useCytoscape({
+  useEffect(() => {
+    debug.log('BDMGraph mounted');
+    return () => debug.log('BDMGraph unmounted');
+  }, []);
+
+  // Debug log for props
+  useEffect(() => {
+    debug.log('BDMGraph: Props updated', {
+      tablesCount: tables.length,
+      tableIds: tables.map(t => t.id),
+      isDetailsPanelOpen
+    });
+  }, [tables, isDetailsPanelOpen]);
+
+  const { addRelationship, updateRelationship, fit, zoomIn, zoomOut, applyGridLayout } = useCytoscape({
     container: containerRef.current,
-    onNodeSelect: async (node) => {
+    tables,
+    onNodeSelect: (node) => {
+      debug.log('BDMGraph: Node selected:', node ? node.id() : 'none');
       if (!node) {
+        debug.log('BDMGraph: Clearing selected table');
         setSelectedTable(null);
         if (onTableSelect) {
           onTableSelect(null);
@@ -102,54 +120,37 @@ export const BDMGraph: React.FC<BDMGraphProps> = ({ tables, onTableSelect, isDet
       }
 
       const table = tables.find((t) => t.id === node.id());
+      debug.log('BDMGraph: Found table for selection:', table?.id);
       if (table) {
-        try {
-          setIsLoading(true);
-          const tableDetail = await keboolaApi.getTableDetail(table.id);
-          setSelectedTable(tableDetail);
-          if (onTableSelect) {
-            onTableSelect(tableDetail);
-          }
-        } catch (error) {
-          console.error('Failed to fetch table details:', error);
-          setSelectedTable(table);
-          if (onTableSelect) {
-            onTableSelect(table);
-          }
-        } finally {
-          setIsLoading(false);
+        debug.log('BDMGraph: Setting selected table:', table.id);
+        setSelectedTable(table);
+        if (onTableSelect) {
+          onTableSelect(table);
         }
       }
     },
     onEdgeSelect: () => {
+      debug.log('BDMGraph: Edge selected, clearing table selection');
       setSelectedTable(null);
       if (onTableSelect) {
         onTableSelect(null);
       }
     },
     onCreateEdge: (sourceId, targetId) => {
+      debug.log('BDMGraph: Creating edge between:', sourceId, 'and', targetId);
       setRelationshipSource(sourceId);
       setRelationshipTarget(targetId);
       setIsCreateDialogOpen(true);
     },
     onEdgeDoubleClick: (edgeId) => {
+      debug.log('BDMGraph: Double click on edge:', edgeId);
       setSelectedEdge(edgeId);
       setIsEditDialogOpen(true);
     },
   });
 
-  // Add tables whenever they change
-  React.useEffect(() => {
-    if (tables.length > 0) {
-      console.log('Adding tables:', tables.length);
-      tables.forEach((table) => {
-        addTable(table);
-      });
-      fit();
-    }
-  }, [tables, addTable, fit]);
-
   const handleCreateRelationship = (type: RelationType) => {
+    debug.log('BDMGraph: Creating relationship:', { source: relationshipSource, target: relationshipTarget, type });
     if (relationshipSource && relationshipTarget) {
       addRelationship(relationshipSource, relationshipTarget, type);
       setRelationshipSource(null);
@@ -159,6 +160,7 @@ export const BDMGraph: React.FC<BDMGraphProps> = ({ tables, onTableSelect, isDet
   };
 
   const handleEditRelationship = (type: RelationType) => {
+    debug.log('BDMGraph: Editing relationship:', { edge: selectedEdge, type });
     if (selectedEdge) {
       updateRelationship(selectedEdge, type);
       setSelectedEdge(null);

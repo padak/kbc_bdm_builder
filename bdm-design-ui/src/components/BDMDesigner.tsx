@@ -76,9 +76,20 @@ export const BDMDesigner: React.FC = () => {
   };
 
   const handleTableSelect = async (table: KeboolaTable) => {
+    // Basic console log for table selection
+    console.log('BDMDesigner handleTableSelect:', { 
+      tableId: table.id,
+      tableName: table.name,
+      currentSelectedId: selectedTableDetails?.id
+    });
+
     try {
       setLoading(true);
       const tableDetails = await keboolaApi.getTableDetail(table.id);
+      console.log('BDMDesigner got table details:', { 
+        tableId: tableDetails.id,
+        columns: tableDetails.columns?.length
+      });
       setSelectedTableDetails(tableDetails);
     } catch (err) {
       console.error('Failed to fetch table details:', err);
@@ -89,9 +100,19 @@ export const BDMDesigner: React.FC = () => {
   };
 
   const handleTableAdd = async (table: KeboolaTable) => {
+    // Basic console log for table addition
+    console.log('BDMDesigner handleTableAdd:', { 
+      tableId: table.id,
+      tableName: table.name
+    });
+
     try {
       setLoading(true);
       const tableDetail = await keboolaApi.getTableDetail(table.id);
+      console.log('BDMDesigner got table details for add:', { 
+        tableId: tableDetail.id,
+        columns: tableDetail.columns?.length
+      });
       addToBDM(tableDetail);
     } catch (err) {
       console.error('Failed to fetch table details:', err);

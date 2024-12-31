@@ -134,15 +134,15 @@ export const TableDetailsPanel: React.FC<TableDetailsPanelProps> = ({
               </Typography>
               <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mb: 2 }}>
                 <Chip
-                  label={`${columns.length} columns`}
-                  size="small"
-                  variant="outlined"
-                />
-                <Chip
                   label={table.primaryKey?.length ? 'Has Primary Key' : 'No Primary Key'}
                   size="small"
                   variant="outlined"
                   color={table.primaryKey?.length ? 'primary' : 'default'}
+                />
+                <Chip
+                  label={`${columns.length} columns`}
+                  size="small"
+                  variant="outlined"
                 />
               </Box>
               {table.primaryKey?.length ? (
