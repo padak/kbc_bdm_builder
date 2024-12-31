@@ -26,18 +26,18 @@ const DRAWER_WIDTH = 300;
 
 export const BDMDesigner: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
+  const [selectedTableDetails, setSelectedTableDetails] = useState<KeboolaTable | null>(null);
   const {
-    setConnection,
-    buckets = [],
+    buckets,
     selectedBucket,
-    tables = [],
-    selectedTable,
-    bdmTables = [],
+    tables,
+    bdmTables,
     isLoading,
     error,
+    setConnection,
+    setBuckets,
     setSelectedBucket,
     setTables,
-    setSelectedTable,
     addToBDM,
     removeFromBDM,
     setError,
@@ -61,26 +61,12 @@ export const BDMDesigner: React.FC = () => {
     setLoading(true);
     
     try {
+      // Fetch tables with full details
       const fetchedTables = await keboolaApi.listTables(bucket.id);
-      console.log('Fetched tables:', fetchedTables);
+      console.log('Received tables with details:', fetchedTables);
       
-      // Fetch details for each table
-      const tablesWithDetails = await Promise.all(
-        fetchedTables.map(async (table) => {
-          try {
-            console.log('Fetching details for table:', table.name);
-            const details = await keboolaApi.getTableDetail(table.id);
-            console.log('Received details for table:', table.name, details);
-            return details;
-          } catch (err) {
-            console.error(`Failed to fetch details for table ${table.name}:`, err);
-            return table;
-          }
-        })
-      );
-      
-      console.log('All tables with details:', tablesWithDetails);
-      setTables(tablesWithDetails || []);
+      // Use the tables directly since they already have full details
+      setTables(fetchedTables);
     } catch (err) {
       console.error('Error fetching tables:', err);
       setError('Failed to fetch tables from the selected bucket');
@@ -91,14 +77,13 @@ export const BDMDesigner: React.FC = () => {
   };
 
   const handleDisconnect = () => {
-    // Clear stored credentials
-    localStorage.removeItem('keboola_config');
-    console.log('Cleared stored configuration');
-    
+    // Clear all stored data
     setConnection(false);
     setSelectedBucket(null);
     setTables([]);
-    setSelectedTable(null);
+    setSelectedTableDetails(null);
+    setBuckets([]);
+    setError(null);
   };
 
   // Filter tables based on search query
@@ -110,6 +95,39 @@ export const BDMDesigner: React.FC = () => {
       false
     );
   });
+
+  const handleTableAdd = async (table: KeboolaTable) => {
+    try {
+      setLoading(true);
+      const tableDetail = await keboolaApi.getTableDetail(table.id);
+      console.log('Adding table to BDM with details:', tableDetail);
+      addToBDM(tableDetail);
+    } catch (err) {
+      console.error('Failed to fetch table details:', err);
+      setError('Failed to fetch table details');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleTableSelect = async (table: KeboolaTable | null) => {
+    if (!table) {
+      setSelectedTableDetails(null);
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const tableDetail = await keboolaApi.getTableDetail(table.id);
+      setSelectedTableDetails(tableDetail);
+    } catch (err) {
+      console.error('Failed to fetch table details:', err);
+      setError('Failed to fetch table details');
+      setSelectedTableDetails(table);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   console.log('Current state:', {
     buckets: buckets.length,
@@ -237,13 +255,13 @@ export const BDMDesigner: React.FC = () => {
                           }
                         >
                           <ListItemButton
-                            selected={selectedTable?.id === table.id}
-                            onClick={() => setSelectedTable(table)}
+                            selected={selectedTableDetails?.id === table.id}
+                            onClick={() => handleTableSelect(table)}
                             disabled={isLoading}
                           >
                             <ListItemText
                               primary={table.displayName || table.name}
-                              secondary={`${table.columns?.length || 0} columns`}
+                              secondary={table.id}
                             />
                           </ListItemButton>
                         </ListItem>
@@ -288,7 +306,8 @@ export const BDMDesigner: React.FC = () => {
         ) : (
           <BDMGraph
             tables={bdmTables}
-            onTableSelect={setSelectedTable}
+            onTableSelect={handleTableSelect}
+            isDetailsPanelOpen={selectedTableDetails !== null}
           />
         )}
       </Box>

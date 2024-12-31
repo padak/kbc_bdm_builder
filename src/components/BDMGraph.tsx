@@ -29,6 +29,7 @@ import { TableDetailsPanel } from './TableDetailsPanel';
 interface BDMGraphProps {
   tables: KeboolaTable[];
   onTableSelect?: (table: KeboolaTable | null) => void;
+  isDetailsPanelOpen?: boolean;
 }
 
 interface RelationshipDialogProps {
@@ -105,7 +106,6 @@ export const BDMGraph: React.FC<BDMGraphProps> = ({ tables, onTableSelect }) => 
       if (table) {
         try {
           setIsLoading(true);
-          setSelectedTable(null); // Clear current selection before loading new one
           const tableDetail = await keboolaApi.getTableDetail(table.id);
           console.log('Table detail received:', tableDetail);
           console.log('Columns:', tableDetail.columns);

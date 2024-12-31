@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -7,13 +7,12 @@ import {
   TextField,
   Button,
   Alert,
-  CircularProgress,
   Box,
+  Typography,
+  CircularProgress,
 } from '@mui/material';
 import { useBDMStore } from '../store/bdmStore';
 import { keboolaApi } from '../services/keboolaApi';
-
-const STORAGE_KEY = 'keboola_config';
 
 interface KeboolaConfigDialogProps {
   open: boolean;
@@ -26,86 +25,49 @@ export const KeboolaConfigDialog: React.FC<KeboolaConfigDialogProps> = ({
 }) => {
   const { setConnection, setBuckets, setSelectedBucket, setTables, setError: setGlobalError } = useBDMStore();
   const [apiToken, setApiToken] = useState('');
-  const [instanceUrl, setInstanceUrl] = useState('https://connection.keboola.com');
+  const [instanceUrl, setInstanceUrl] = useState('https://connection.north-europe.azure.keboola.com');
   const [localError, setLocalError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [connectionStatus, setConnectionStatus] = useState<string>('');
 
-  useEffect(() => {
-    // Try to load saved credentials when the dialog opens
-    if (open) {
-      const savedConfig = localStorage.getItem(STORAGE_KEY);
-      if (savedConfig) {
-        try {
-          const { apiToken: token, instanceUrl: url } = JSON.parse(savedConfig);
-          setApiToken(token);
-          setInstanceUrl(url);
-          console.log('Loaded saved configuration');
-          // Attempt to connect with saved credentials
-          handleSubmit(undefined, token, url);
-        } catch (err) {
-          console.error('Failed to parse saved configuration:', err);
-          localStorage.removeItem(STORAGE_KEY);
-        }
-      }
-    }
-  }, [open]);
-
-  const handleSubmit = async (
-    e?: React.FormEvent,
-    savedToken?: string,
-    savedUrl?: string
-  ) => {
-    if (e) e.preventDefault();
-    
-    const token = savedToken || apiToken;
-    const url = savedUrl || instanceUrl;
-    
-    if (!token || !url) {
-      setLocalError('Please provide both API token and instance URL');
-      return;
-    }
-
+  const handleSubmit = async () => {
     setIsSubmitting(true);
     setLocalError(null);
     setGlobalError(null);
+    setConnectionStatus('Connecting to Keboola...');
 
     try {
-      console.log('Configuring API client...');
-      keboolaApi.configure({ apiToken: token, instanceUrl: url });
-
-      console.log('Testing connection...');
+      // Configure the API client
+      keboolaApi.configure({ apiToken, instanceUrl });
+      
+      // Test the connection
       const isConnected = await keboolaApi.testConnection();
-
+      
       if (isConnected) {
         try {
-          console.log('Fetching buckets...');
+          setConnectionStatus('Loading buckets...');
+          // Fetch initial buckets
           const fetchedBuckets = await keboolaApi.listBuckets();
           
           if (fetchedBuckets && fetchedBuckets.length > 0) {
             setBuckets(fetchedBuckets);
+            setConnectionStatus('Loading tables...');
             
             // Load tables for the first bucket
             const firstBucket = fetchedBuckets[0];
             setSelectedBucket(firstBucket);
             
-            console.log('Fetching tables for bucket:', firstBucket.id);
             const fetchedTables = await keboolaApi.listTables(firstBucket.id);
-            
             if (fetchedTables) {
               setTables(fetchedTables);
-              // Save credentials only after successful connection
-              localStorage.setItem(
-                STORAGE_KEY,
-                JSON.stringify({ apiToken: token, instanceUrl: url })
-              );
-              console.log('Saved configuration');
+              // Everything is loaded, now we can set the connection state
               setConnection(true);
               onClose();
             } else {
-              throw new Error('Failed to load tables from the first bucket.');
+              setLocalError('Failed to load tables from the first bucket.');
             }
           } else {
-            throw new Error('No buckets found in your Keboola project.');
+            setLocalError('No buckets found in your Keboola project.');
           }
         } catch (err) {
           console.error('Error fetching initial data:', err);
@@ -117,72 +79,80 @@ export const KeboolaConfigDialog: React.FC<KeboolaConfigDialogProps> = ({
     } catch (err) {
       console.error('Error connecting to Keboola:', err);
       setLocalError('An error occurred while connecting to Keboola API. Please try again.');
-      localStorage.removeItem(STORAGE_KEY);
     } finally {
       setIsSubmitting(false);
+      setConnectionStatus('');
+    }
+  };
+
+  const handleClose = () => {
+    if (!isSubmitting) {
+      setLocalError(null);
+      setConnectionStatus('');
+      onClose();
     }
   };
 
   return (
     <Dialog 
       open={open} 
+      onClose={handleClose}
       maxWidth="sm"
       fullWidth
       disableEscapeKeyDown={isSubmitting}
     >
       <DialogTitle>Connect to Keboola</DialogTitle>
-      <form onSubmit={handleSubmit}>
-        <DialogContent>
+      <DialogContent>
+        <Box sx={{ mt: 2 }}>
+          <Typography variant="body1" gutterBottom>
+            Please enter your Keboola Storage API credentials to connect to your project.
+          </Typography>
           {localError && (
-            <Alert severity="error" sx={{ mb: 2 }}>
+            <Alert severity="error" sx={{ mt: 2, mb: 2 }}>
               {localError}
             </Alert>
           )}
+          {isSubmitting && connectionStatus && (
+            <Alert severity="info" sx={{ mt: 2, mb: 2 }}>
+              {connectionStatus}
+            </Alert>
+          )}
           <TextField
+            autoFocus
+            margin="dense"
             label="API Token"
+            type="password"
+            fullWidth
             value={apiToken}
             onChange={(e) => setApiToken(e.target.value)}
-            fullWidth
-            required
-            margin="normal"
-            type="password"
             disabled={isSubmitting}
+            sx={{ mt: 2 }}
           />
           <TextField
+            margin="dense"
             label="Instance URL"
+            type="text"
+            fullWidth
             value={instanceUrl}
             onChange={(e) => setInstanceUrl(e.target.value)}
-            fullWidth
-            required
-            margin="normal"
-            placeholder="https://connection.keboola.com"
             disabled={isSubmitting}
+            sx={{ mt: 2 }}
           />
-        </DialogContent>
-        <DialogActions>
-          <Box sx={{ position: 'relative' }}>
-            <Button
-              type="submit"
-              variant="contained"
-              disabled={isSubmitting}
-            >
-              Connect
-            </Button>
-            {isSubmitting && (
-              <CircularProgress
-                size={24}
-                sx={{
-                  position: 'absolute',
-                  top: '50%',
-                  left: '50%',
-                  marginTop: '-12px',
-                  marginLeft: '-12px',
-                }}
-              />
-            )}
-          </Box>
-        </DialogActions>
-      </form>
+        </Box>
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={handleClose} disabled={isSubmitting}>
+          Cancel
+        </Button>
+        <Button
+          onClick={handleSubmit}
+          variant="contained"
+          disabled={!apiToken || !instanceUrl || isSubmitting}
+          startIcon={isSubmitting ? <CircularProgress size={20} /> : undefined}
+        >
+          {isSubmitting ? 'Connecting...' : 'Connect'}
+        </Button>
+      </DialogActions>
     </Dialog>
   );
 }; 

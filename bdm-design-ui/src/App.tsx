@@ -1,14 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ThemeProvider, createTheme, CssBaseline, Box, CircularProgress, Typography } from '@mui/material';
 import { KeboolaConfigDialog } from './components/KeboolaConfig';
 import { BDMDesigner } from './components/BDMDesigner';
 import { useBDMStore } from './store/bdmStore';
-
-// Import Roboto font
-import '@fontsource/roboto/300.css';
-import '@fontsource/roboto/400.css';
-import '@fontsource/roboto/500.css';
-import '@fontsource/roboto/700.css';
+import { keboolaApi } from './services/keboolaApi';
 
 const theme = createTheme({
   palette: {

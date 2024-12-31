@@ -12,4 +12,10 @@ export default defineConfig({
       'cytoscape-edgehandles': 'cytoscape-edgehandles/cytoscape-edgehandles.js',
     },
   },
+  server: {
+    fs: {
+      strict: false,
+      allow: ['.']
+    },
+  },
 }); 

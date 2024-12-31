@@ -83,7 +83,6 @@ export const useCytoscape = ({
           selector: 'edge[label]',
           style: {
             label: 'data(label)',
-            // Only show label if it's not "undefined"
             visibility: (ele: EdgeSingular) => ele.data('label') === 'undefined' ? 'hidden' : 'visible',
           } as any,
         },
@@ -190,7 +189,29 @@ export const useCytoscape = ({
       }
     });
 
+    // Initialize edge handles
+    ehRef.current = cy.edgehandles({
+      snap: true,
+      noEdgeEventsInDraw: true,
+      disableBrowserGestures: true,
+      handleNodes: 'node',
+      handlePosition: 'right middle',
+      handleInDrawMode: false,
+      edgeType: () => 'straight',
+      loopAllowed: () => false,
+      nodeLoopOffset: -50,
+      edgeParams: {
+        style: {
+          'curve-style': 'bezier',
+          'target-arrow-shape': 'triangle',
+        },
+      },
+    });
+
     return () => {
+      if (ehRef.current) {
+        ehRef.current.destroy();
+      }
       cy.destroy();
     };
   }, [container, onNodeSelect, onEdgeSelect, onCreateEdge, onEdgeDoubleClick]);
@@ -201,35 +222,18 @@ export const useCytoscape = ({
 
     console.log('Adding table:', table.id);
 
-    // Store current state before any modifications
-    const currentNodes = cy.nodes().map(node => ({
-      id: node.id(),
-      position: node.position(),
-      data: node.data(),
-    }));
-
-    const currentEdges = cy.edges().map(edge => ({
-      id: edge.id(),
-      source: edge.source().id(),
-      target: edge.target().id(),
-      data: edge.data(),
-    }));
-
-    // Remove all elements
-    cy.elements().remove();
-
-    // Add back existing nodes (excluding the one we're adding/updating)
-    currentNodes
-      .filter(node => node.id !== table.id)
-      .forEach(node => {
-        cy.add({
-          group: 'nodes',
-          data: node.data,
-          position: node.position,
-        });
+    // Check if the node already exists
+    const existingNode = cy.getElementById(table.id);
+    if (existingNode.length > 0) {
+      // Update existing node data
+      existingNode.data({
+        label: table.displayName || table.name,
+        columns: table.columns,
       });
+      return;
+    }
 
-    // Add the new/updated node
+    // Add new node
     cy.add({
       group: 'nodes',
       data: {
@@ -241,26 +245,6 @@ export const useCytoscape = ({
         x: Math.random() * 500 + 100,
         y: Math.random() * 500 + 100,
       },
-    });
-
-    // Restore edges
-    console.log('Restoring edges');
-    currentEdges.forEach(edge => {
-      // Only restore edges if both source and target nodes exist
-      const sourceExists = cy.getElementById(edge.source).length > 0;
-      const targetExists = cy.getElementById(edge.target).length > 0;
-      
-      if (sourceExists && targetExists) {
-        cy.add({
-          group: 'edges',
-          data: {
-            id: edge.id,
-            source: edge.source,
-            target: edge.target,
-            label: edge.data.label && edge.data.label !== 'undefined' ? edge.data.label : undefined,
-          },
-        });
-      }
     });
   };
 

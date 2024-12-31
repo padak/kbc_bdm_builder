@@ -23,23 +23,16 @@ export const KeboolaConfigDialog: React.FC<KeboolaConfigDialogProps> = ({
   open,
   onClose,
 }) => {
+  const { setConnection, setBuckets, setSelectedBucket, setTables, setError: setGlobalError } = useBDMStore();
   const [apiToken, setApiToken] = useState('');
-  const [instanceUrl, setInstanceUrl] = useState('https://connection.keboola.com');
-  const [error, setError] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
+  const [instanceUrl, setInstanceUrl] = useState('https://connection.north-europe.azure.keboola.com');
+  const [localError, setLocalError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState<string>('');
-  const { 
-    setConnection,
-    setBuckets,
-    setSelectedBucket,
-    setTables,
-    setLoading,
-    setError: setGlobalError
-  } = useBDMStore();
 
   const handleSubmit = async () => {
-    setIsLoading(true);
-    setError(null);
+    setIsSubmitting(true);
+    setLocalError(null);
     setGlobalError(null);
     setConnectionStatus('Connecting to Keboola...');
 
@@ -71,30 +64,30 @@ export const KeboolaConfigDialog: React.FC<KeboolaConfigDialogProps> = ({
               setConnection(true);
               onClose();
             } else {
-              setError('Failed to load tables from the first bucket.');
+              setLocalError('Failed to load tables from the first bucket.');
             }
           } else {
-            setError('No buckets found in your Keboola project.');
+            setLocalError('No buckets found in your Keboola project.');
           }
         } catch (err) {
           console.error('Error fetching initial data:', err);
-          setError('Connected successfully but failed to fetch data. Please try again.');
+          setLocalError('Connected successfully but failed to fetch data. Please try again.');
         }
       } else {
-        setError('Failed to connect to Keboola API. Please check your credentials.');
+        setLocalError('Failed to connect to Keboola API. Please check your credentials.');
       }
     } catch (err) {
       console.error('Error connecting to Keboola:', err);
-      setError('An error occurred while connecting to Keboola API. Please try again.');
+      setLocalError('An error occurred while connecting to Keboola API. Please try again.');
     } finally {
-      setIsLoading(false);
+      setIsSubmitting(false);
       setConnectionStatus('');
     }
   };
 
   const handleClose = () => {
-    if (!isLoading) {
-      setError(null);
+    if (!isSubmitting) {
+      setLocalError(null);
       setConnectionStatus('');
       onClose();
     }
@@ -106,7 +99,7 @@ export const KeboolaConfigDialog: React.FC<KeboolaConfigDialogProps> = ({
       onClose={handleClose}
       maxWidth="sm"
       fullWidth
-      disableEscapeKeyDown={isLoading}
+      disableEscapeKeyDown={isSubmitting}
     >
       <DialogTitle>Connect to Keboola</DialogTitle>
       <DialogContent>
@@ -114,12 +107,12 @@ export const KeboolaConfigDialog: React.FC<KeboolaConfigDialogProps> = ({
           <Typography variant="body1" gutterBottom>
             Please enter your Keboola Storage API credentials to connect to your project.
           </Typography>
-          {error && (
+          {localError && (
             <Alert severity="error" sx={{ mt: 2, mb: 2 }}>
-              {error}
+              {localError}
             </Alert>
           )}
-          {isLoading && connectionStatus && (
+          {isSubmitting && connectionStatus && (
             <Alert severity="info" sx={{ mt: 2, mb: 2 }}>
               {connectionStatus}
             </Alert>
@@ -132,7 +125,7 @@ export const KeboolaConfigDialog: React.FC<KeboolaConfigDialogProps> = ({
             fullWidth
             value={apiToken}
             onChange={(e) => setApiToken(e.target.value)}
-            disabled={isLoading}
+            disabled={isSubmitting}
             sx={{ mt: 2 }}
           />
           <TextField
@@ -142,22 +135,22 @@ export const KeboolaConfigDialog: React.FC<KeboolaConfigDialogProps> = ({
             fullWidth
             value={instanceUrl}
             onChange={(e) => setInstanceUrl(e.target.value)}
-            disabled={isLoading}
+            disabled={isSubmitting}
             sx={{ mt: 2 }}
           />
         </Box>
       </DialogContent>
       <DialogActions>
-        <Button onClick={handleClose} disabled={isLoading}>
+        <Button onClick={handleClose} disabled={isSubmitting}>
           Cancel
         </Button>
         <Button
           onClick={handleSubmit}
           variant="contained"
-          disabled={!apiToken || !instanceUrl || isLoading}
-          startIcon={isLoading ? <CircularProgress size={20} /> : undefined}
+          disabled={!apiToken || !instanceUrl || isSubmitting}
+          startIcon={isSubmitting ? <CircularProgress size={20} /> : undefined}
         >
-          {isLoading ? 'Connecting...' : 'Connect'}
+          {isSubmitting ? 'Connecting...' : 'Connect'}
         </Button>
       </DialogActions>
     </Dialog>

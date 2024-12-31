@@ -1,31 +1,49 @@
 import React, { useRef, useEffect } from 'react';
-import { Box } from '@mui/material';
-import { useCytoscape } from '../hooks/useCytoscape';
+import { Box, IconButton, Paper } from '@mui/material';
+import {
+  ZoomIn as ZoomInIcon,
+  ZoomOut as ZoomOutIcon,
+  GridOn as GridOnIcon,
+  CenterFocusStrong as FitIcon,
+} from '@mui/icons-material';
 import { KeboolaTable } from '../services/keboolaApi';
+import { useCytoscape } from '../hooks/useCytoscape';
 
 interface BDMGraphProps {
   tables: KeboolaTable[];
   onTableSelect?: (table: KeboolaTable) => void;
+  isDetailsPanelOpen?: boolean;
 }
 
-export const BDMGraph: React.FC<BDMGraphProps> = ({ tables, onTableSelect }) => {
+export const BDMGraph: React.FC<BDMGraphProps> = ({
+  tables,
+  onTableSelect,
+  isDetailsPanelOpen = false,
+}) => {
   const containerRef = useRef<HTMLDivElement>(null);
-  const { addTable, fit } = useCytoscape({
+  const {
+    addTable,
+    addRelationship,
+    removeElement,
+    fit,
+    zoomIn,
+    zoomOut,
+    toggleGrid,
+  } = useCytoscape({
     container: containerRef.current,
     onNodeSelect: (node) => {
-      const table = tables.find((t) => t.id === node.id());
-      if (table && onTableSelect) {
-        onTableSelect(table);
+      if (onTableSelect) {
+        const table = tables.find((t) => t.id === node.id());
+        if (table) {
+          onTableSelect(table);
+        }
       }
     },
   });
 
   useEffect(() => {
-    tables.forEach((table) => {
-      addTable(table);
-    });
-    fit();
-  }, [tables, addTable, fit]);
+    tables.forEach(addTable);
+  }, [tables, addTable]);
 
   return (
     <Box
@@ -33,8 +51,39 @@ export const BDMGraph: React.FC<BDMGraphProps> = ({ tables, onTableSelect }) => 
       sx={{
         width: '100%',
         height: '100%',
-        bgcolor: 'background.default',
+        bgcolor: '#f5f5f5',
+        position: 'relative',
+        transition: 'padding-right 0.3s ease',
+        pr: isDetailsPanelOpen ? '400px' : 0,
       }}
-    />
+    >
+      <Paper
+        elevation={2}
+        sx={{
+          position: 'absolute',
+          top: 16,
+          right: isDetailsPanelOpen ? 416 : 16,
+          p: 1,
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 1,
+          transition: 'right 0.3s ease',
+          zIndex: 2,
+        }}
+      >
+        <IconButton onClick={zoomIn} size="small" title="Zoom In">
+          <ZoomInIcon />
+        </IconButton>
+        <IconButton onClick={zoomOut} size="small" title="Zoom Out">
+          <ZoomOutIcon />
+        </IconButton>
+        <IconButton onClick={toggleGrid} size="small" title="Toggle Grid Layout">
+          <GridOnIcon />
+        </IconButton>
+        <IconButton onClick={fit} size="small" title="Fit to View">
+          <FitIcon />
+        </IconButton>
+      </Paper>
+    </Box>
   );
 }; 

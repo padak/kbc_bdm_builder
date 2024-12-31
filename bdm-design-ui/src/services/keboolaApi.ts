@@ -12,18 +12,37 @@ export interface KeboolaBucket {
   description: string;
 }
 
+export interface KeboolaMetadata {
+  key: string;
+  value: string;
+}
+
+export interface KeboolaColumnDefinition {
+  type: string;
+  nullable: boolean;
+  length?: string;
+}
+
 export interface KeboolaColumn {
   name: string;
   type: string;
   basetype: string;
+  definition: KeboolaColumnDefinition;
 }
 
 export interface KeboolaTable {
   id: string;
   name: string;
-  displayName: string;
-  primaryKey: string[];
-  columns: KeboolaColumn[];
+  displayName?: string;
+  primaryKey?: string[];
+  columns?: KeboolaColumn[];
+  definition?: {
+    columns: KeboolaColumn[];
+  };
+  metadata?: KeboolaMetadata[];
+  columnMetadata?: {
+    [key: string]: KeboolaMetadata[];
+  };
 }
 
 class KeboolaApiService {

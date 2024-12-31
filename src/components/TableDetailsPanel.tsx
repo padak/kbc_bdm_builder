@@ -49,7 +49,7 @@ export const TableDetailsPanel: React.FC<TableDetailsPanelProps> = ({
   }, [table]);
 
   // Map the columns with their metadata from the definition
-  const columns = table?.definition?.columns?.map((col): ColumnData => {
+  const columns = table?.columns?.map((col): ColumnData => {
     const metadata = table.columnMetadata?.[col.name] || [];
     const description = metadata.find(m => m.key === 'KBC.description')?.value;
     
@@ -57,7 +57,7 @@ export const TableDetailsPanel: React.FC<TableDetailsPanelProps> = ({
       name: col.name,
       type: col.definition.type,
       nullable: col.definition.nullable,
-      length: col.definition.length,
+      length: col.definition.length || '',
       basetype: col.basetype,
       description: description
     };
