@@ -1,4 +1,4 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef } from 'react';
 import { Box, IconButton, Paper } from '@mui/material';
 import {
   ZoomIn as ZoomInIcon,
@@ -22,15 +22,15 @@ export const BDMGraph: React.FC<BDMGraphProps> = ({
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const {
-    addTable,
     fit,
     zoomIn,
     zoomOut,
     toggleGrid,
   } = useCytoscape({
     container: containerRef.current,
+    tables,
     onNodeSelect: (node) => {
-      if (onTableSelect) {
+      if (onTableSelect && node) {
         const table = tables.find((t) => t.id === node.id());
         if (table) {
           onTableSelect(table);
@@ -38,10 +38,6 @@ export const BDMGraph: React.FC<BDMGraphProps> = ({
       }
     },
   });
-
-  useEffect(() => {
-    tables.forEach(addTable);
-  }, [tables, addTable]);
 
   return (
     <Box

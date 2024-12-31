@@ -4,6 +4,7 @@ import { KeboolaTable } from '../services/keboolaApi';
 
 interface UseCytoscapeOptions {
   container: HTMLElement | null;
+  tables: KeboolaTable[];
   onNodeSelect?: (node: NodeSingular) => void;
   onEdgeSelect?: (edge: EdgeSingular) => void;
 }
@@ -13,11 +14,16 @@ interface NodeData {
   [key: string]: any;
 }
 
-export const useCytoscape = ({ container, onNodeSelect, onEdgeSelect }: UseCytoscapeOptions) => {
+export const useCytoscape = ({
+  container,
+  tables,
+  onNodeSelect,
+  onEdgeSelect,
+}: UseCytoscapeOptions) => {
   const cyRef = useRef<Core | null>(null);
-  const gridEnabled = useRef(false);
   const nodesRef = useRef<{ [key: string]: NodeData }>({});
 
+  // Initialize cytoscape
   useEffect(() => {
     if (!container) return;
 
@@ -49,54 +55,11 @@ export const useCytoscape = ({ container, onNodeSelect, onEdgeSelect }: UseCytos
               'border-width': 3,
             },
           },
-          {
-            selector: 'edge',
-            style: {
-              'width': 2,
-              'line-color': '#666',
-              'target-arrow-color': '#666',
-              'target-arrow-shape': 'triangle',
-              'curve-style': 'bezier',
-              'label': 'data(label)',
-              'font-size': '10px',
-              'text-rotation': 'autorotate',
-            },
-          },
-          {
-            selector: 'edge:selected',
-            style: {
-              'line-color': '#f50057',
-              'target-arrow-color': '#f50057',
-              'width': 3,
-            },
-          },
         ],
         layout: {
-          name: 'grid',
-          rows: 2,
+          name: 'preset',
         },
         wheelSensitivity: 0.2,
-      });
-
-      // Event handlers
-      if (onNodeSelect) {
-        cyRef.current.on('tap', 'node', (event) => {
-          onNodeSelect(event.target);
-        });
-      }
-
-      if (onEdgeSelect) {
-        cyRef.current.on('tap', 'edge', (event) => {
-          onEdgeSelect(event.target);
-        });
-      }
-
-      // Enable node dragging
-      cyRef.current.on('dragfree', 'node', (event) => {
-        const node = event.target;
-        const id = node.id();
-        const position = node.position();
-        nodesRef.current[id] = { ...nodesRef.current[id], position };
       });
     }
 
@@ -106,102 +69,104 @@ export const useCytoscape = ({ container, onNodeSelect, onEdgeSelect }: UseCytos
         cyRef.current = null;
       }
     };
-  }, [container, onNodeSelect, onEdgeSelect]);
+  }, [container]);
 
-  const addTable = useCallback((table: KeboolaTable) => {
-    if (!cyRef.current) return;
+  // Effect to sync graph with tables prop
+  useEffect(() => {
+    if (!cyRef.current || !container) return;
+    
+    const cy = cyRef.current;
+    
+    // Get current nodes in the graph
+    const currentNodes = cy.nodes().map(node => node.id());
+    
+    // Add or update nodes that should be in the graph
+    tables.forEach(table => {
+      const existingNode = cy.getElementById(table.id);
+      if (existingNode.length > 0) {
+        // Update existing node data but maintain its position
+        const currentPosition = existingNode.position();
+        existingNode.data({
+          id: table.id,
+          label: table.displayName || table.name,
+          columns: table.columns,
+        });
+        existingNode.position(currentPosition);
+      } else {
+        // Get saved position or generate new one
+        const savedNode = nodesRef.current[table.id];
+        const position = savedNode?.position || {
+          x: Math.random() * 500,
+          y: Math.random() * 500,
+        };
 
-    const existingNode = cyRef.current.getElementById(table.id);
-    if (existingNode.length > 0) {
-      // Update existing node data
-      existingNode.data({
-        label: table.displayName || table.name,
-        columns: table.definition?.columns || [],
-      });
-      return;
-    }
-
-    // Get saved position or generate new one
-    const savedNode = nodesRef.current[table.id];
-    const position = savedNode?.position || {
-      x: Math.random() * 500,
-      y: Math.random() * 500,
-    };
-
-    // Add new node
-    const newNode: ElementDefinition = {
-      group: 'nodes',
-      data: {
-        id: table.id,
-        label: table.displayName || table.name,
-        columns: table.definition?.columns || [],
-      },
-      position,
-    };
-
-    cyRef.current.add(newNode);
-    nodesRef.current[table.id] = { position, ...newNode.data };
-  }, []);
-
-  const addRelationship = useCallback((
-    sourceId: string,
-    targetId: string,
-    label: string,
-    id?: string
-  ) => {
-    if (!cyRef.current) return;
-
-    const edgeId = id || `${sourceId}-${targetId}`;
-    const existingEdge = cyRef.current.getElementById(edgeId);
-    if (existingEdge.length > 0) return;
-
-    cyRef.current.add({
-      group: 'edges',
-      data: {
-        id: edgeId,
-        source: sourceId,
-        target: targetId,
-        label,
-      },
+        // Add new node
+        cy.add({
+          group: 'nodes',
+          data: {
+            id: table.id,
+            label: table.displayName || table.name,
+            columns: table.columns,
+          },
+          position,
+        });
+      }
     });
-  }, []);
 
-  const removeElement = useCallback((elementId: string) => {
+    // Remove nodes that shouldn't be in the graph
+    const tableIds = tables.map(t => t.id);
+    currentNodes.forEach(nodeId => {
+      if (!tableIds.includes(nodeId)) {
+        cy.getElementById(nodeId).remove();
+      }
+    });
+  }, [container, tables]);
+
+  // Event handlers
+  useEffect(() => {
     if (!cyRef.current) return;
-    const element = cyRef.current.getElementById(elementId);
-    if (element.length > 0) {
-      cyRef.current.remove(element);
-      delete nodesRef.current[elementId];
-    }
-  }, []);
 
-  const fit = useCallback(() => {
+    const cy = cyRef.current;
+
+    if (onNodeSelect) {
+      cy.on('tap', 'node', (event) => {
+        const node = event.target;
+        onNodeSelect(node);
+      });
+    }
+
+    if (onEdgeSelect) {
+      cy.on('tap', 'edge', (event) => {
+        onEdgeSelect(event.target);
+      });
+    }
+
+    return () => {
+      cy.removeAllListeners();
+    };
+  }, [onNodeSelect, onEdgeSelect]);
+
+  const fit = () => {
     if (!cyRef.current) return;
     cyRef.current.fit();
-  }, []);
+  };
 
-  const zoomIn = useCallback(() => {
+  const zoomIn = () => {
     if (!cyRef.current) return;
     cyRef.current.zoom(cyRef.current.zoom() * 1.2);
-  }, []);
+  };
 
-  const zoomOut = useCallback(() => {
+  const zoomOut = () => {
     if (!cyRef.current) return;
     cyRef.current.zoom(cyRef.current.zoom() * 0.8);
-  }, []);
+  };
 
-  const toggleGrid = useCallback(() => {
+  const toggleGrid = () => {
     if (!cyRef.current) return;
-    gridEnabled.current = !gridEnabled.current;
-    if (gridEnabled.current) {
-      cyRef.current.layout({ name: 'grid', rows: 2 }).run();
-    }
-  }, []);
+    cyRef.current.layout({ name: 'grid', rows: 2 }).run();
+  };
 
   return {
-    addTable,
-    addRelationship,
-    removeElement,
     fit,
     zoomIn,
     zoomOut,
