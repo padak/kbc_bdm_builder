@@ -1,198 +1,212 @@
 import React from 'react';
 import {
+  Drawer,
   Box,
   Typography,
+  IconButton,
+  List,
+  ListItem,
+  ListItemText,
   Divider,
   Chip,
-  IconButton,
-  Tooltip,
-  CircularProgress,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
+  Paper,
 } from '@mui/material';
 import { Close as CloseIcon } from '@mui/icons-material';
-import { KeboolaTable, KeboolaMetadata } from '../services/keboolaApi';
+import { KeboolaTable, KeboolaColumn, KeboolaMetadata } from '../services/keboolaApi';
 
 interface TableDetailsPanelProps {
   table: KeboolaTable | null;
   onClose: () => void;
-  isLoading?: boolean;
+  isOpen: boolean;
 }
 
-interface ColumnData {
-  name: string;
-  type: string;
-  nullable: boolean;
-  length: string;
-  basetype: string;
-  description?: string;
-}
-
-export const TableDetailsPanel: React.FC<TableDetailsPanelProps> = ({ 
-  table, 
+export const TableDetailsPanel: React.FC<TableDetailsPanelProps> = ({
+  table,
   onClose,
-  isLoading = false,
+  isOpen,
 }) => {
-  // Basic console log when component renders
-  console.log('TableDetailsPanel render:', { 
-    hasTable: !!table, 
-    tableId: table?.id,
-    isLoading 
-  });
-
   if (!table) return null;
 
-  // Map the columns with their metadata from the definition
-  const columns = table.definition?.columns?.map((col): ColumnData => {
-    const metadata = table.columnMetadata?.[col.name] || [];
-    const description = metadata.find((m: KeboolaMetadata) => m.key === 'KBC.description')?.value;
-    
-    return {
-      name: col.name,
-      type: col.definition.type,
-      nullable: col.definition.nullable,
-      length: col.definition.length || '',
-      basetype: col.basetype,
-      description: description
-    };
-  }) || [];
+  const renderColumnType = (column: KeboolaColumn) => {
+    const type = column.definition?.type || column.type;
+    const nullable = column.definition?.nullable;
+    const length = column.definition?.length;
+    const basetype = column.basetype;
 
-  const formatDataType = (column: ColumnData) => {
-    let type = `${column.type}`;
-    if (column.length) {
-      type += ` (${column.length})`;
-    }
-    if (column.basetype && column.basetype !== column.type) {
-      type += ` [${column.basetype}]`;
-    }
-    if (column.nullable) {
-      type += ', Nullable';
-    }
-    return type || '(Not specified)';
-  };
-
-  return (
-    <Box
-      sx={{
-        width: 400,
-        height: '100%',
-        position: 'fixed',
-        right: 0,
-        top: 64,
-        zIndex: 2,
-        bgcolor: 'background.paper',
-        borderLeft: '1px solid #e0e0e0',
-        boxShadow: '-2px 0 4px rgba(0, 0, 0, 0.1)',
-      }}
-    >
-      <Box sx={{ p: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
-        <Typography variant="h6" sx={{ flexGrow: 1 }}>
-          Table Details
+    return (
+      <Box sx={{ mt: 0.5 }}>
+        <Typography variant="body2" color="text.secondary">
+          Type: {type}{length ? `(${length})` : ''}{nullable ? ' (nullable)' : ' (not null)'}
         </Typography>
-        <Tooltip title="Close">
-          <IconButton size="small" onClick={onClose}>
-            <CloseIcon />
-          </IconButton>
-        </Tooltip>
-      </Box>
-      <Divider />
-      <Box sx={{ p: 2 }}>
-        <Typography variant="subtitle1" gutterBottom>
-          {table.displayName || table.name}
-        </Typography>
-        <Typography variant="body2" color="text.secondary" gutterBottom>
-          {table.id}
-        </Typography>
-        {table.metadata?.find((m: KeboolaMetadata) => m.key === 'KBC.description')?.value && (
-          <Typography variant="body2" sx={{ mt: 1 }}>
-            {table.metadata.find((m: KeboolaMetadata) => m.key === 'KBC.description')?.value}
+        {basetype && basetype !== type && (
+          <Typography variant="body2" color="text.secondary">
+            Base Type: {basetype}
           </Typography>
         )}
       </Box>
-      <Divider />
-      <Box sx={{ p: 2 }}>
-        <Typography variant="subtitle2" gutterBottom>
-          Properties
-        </Typography>
-        <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mb: 2 }}>
-          <Chip
-            label={table.primaryKey?.length ? 'Has Primary Key' : 'No Primary Key'}
-            size="small"
-            variant="outlined"
-            color={table.primaryKey?.length ? 'primary' : 'default'}
-          />
-          <Chip
-            label={`${columns.length} columns`}
-            size="small"
-            variant="outlined"
-          />
+    );
+  };
+
+  const getTableDescription = () => {
+    if (!table.metadata) return null;
+    const descMeta = table.metadata.find(m => m.key === 'KBC.description' || m.key === 'description');
+    return descMeta?.value;
+  };
+
+  const getColumnDescription = (columnName: string) => {
+    if (!table.columnMetadata || !table.columnMetadata[columnName]) return null;
+    const descMeta = table.columnMetadata[columnName].find(m => m.key === 'KBC.description' || m.key === 'description');
+    return descMeta?.value;
+  };
+
+  const getColumnMetadata = (columnName: string) => {
+    if (!table.columnMetadata || !table.columnMetadata[columnName]) return [];
+    return table.columnMetadata[columnName].filter(m => !m.key.startsWith('KBC.') && m.key !== 'description');
+  };
+
+  return (
+    <Drawer
+      anchor="right"
+      open={isOpen}
+      onClose={onClose}
+      variant="persistent"
+      sx={{
+        width: 400,
+        flexShrink: 0,
+        '& .MuiDrawer-paper': {
+          width: 400,
+          boxSizing: 'border-box',
+        },
+      }}
+    >
+      <Box sx={{ p: 2, height: '100%', overflow: 'auto' }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+          <Typography variant="h6" sx={{ flexGrow: 1 }}>
+            {table.displayName || table.name}
+          </Typography>
+          <IconButton onClick={onClose} size="small">
+            <CloseIcon />
+          </IconButton>
         </Box>
-        {table.primaryKey?.length ? (
-          <Box>
-            <Typography variant="caption" color="text.secondary">
-              Primary Key:
-            </Typography>
+        
+        <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+          ID: {table.id}
+        </Typography>
+
+        {getTableDescription() && (
+          <Paper variant="outlined" sx={{ p: 1.5, mt: 2, bgcolor: 'background.default' }}>
             <Typography variant="body2">
-              {table.primaryKey.join(', ')}
+              {getTableDescription()}
             </Typography>
+          </Paper>
+        )}
+
+        {table.primaryKey && table.primaryKey.length > 0 && (
+          <Box sx={{ mt: 2 }}>
+            <Typography variant="subtitle2" gutterBottom>
+              Primary Key
+            </Typography>
+            <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+              {table.primaryKey.map((key) => (
+                <Chip key={`pk-${key}`} label={key} size="small" />
+              ))}
+            </Box>
           </Box>
-        ) : null}
-      </Box>
-      <Divider />
-      <Box sx={{ flexGrow: 1, overflow: 'auto', p: 2 }}>
-        {isLoading ? (
-          <Box sx={{ display: 'flex', justifyContent: 'center', p: 2 }}>
-            <CircularProgress size={24} />
-          </Box>
-        ) : (
-          <TableContainer>
-            <Table size="small" stickyHeader>
-              <TableHead>
-                <TableRow>
-                  <TableCell>Column Name</TableCell>
-                  <TableCell>Data Type</TableCell>
-                  <TableCell>Description</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {columns.map((column, index) => (
-                  <TableRow key={`${table.id}-${column.name}-${index}`}>
-                    <TableCell>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <Typography variant="body2" component="span">
-                          {column.name}
-                        </Typography>
-                        {table.primaryKey?.includes(column.name) && (
-                          <Chip
-                            label="PK"
-                            size="small"
-                            color="primary"
-                            sx={{ height: 16, '& .MuiChip-label': { px: 1, fontSize: '0.625rem' } }}
+        )}
+
+        <Divider sx={{ my: 2 }} />
+        
+        <Typography variant="subtitle1" gutterBottom>
+          Columns ({table.columns?.length || 0})
+        </Typography>
+        <List dense>
+          {table.columns?.map((column, index) => {
+            if (!column || !column.name) {
+              console.warn('Found column without name:', column);
+              return null;
+            }
+            const columnMeta = getColumnMetadata(column.name);
+            return (
+              <ListItem
+                key={`col-${column.name}-${index}`}
+                sx={{
+                  flexDirection: 'column',
+                  alignItems: 'flex-start',
+                  borderBottom: '1px solid',
+                  borderColor: 'divider',
+                  py: 1.5,
+                }}
+              >
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, width: '100%' }}>
+                  <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+                    {column.name}
+                  </Typography>
+                  {table.primaryKey?.includes(column.name) && (
+                    <Chip label="PK" size="small" color="primary" />
+                  )}
+                </Box>
+                {renderColumnType(column)}
+                {getColumnDescription(column.name) && (
+                  <Typography 
+                    variant="body2" 
+                    sx={{ 
+                      mt: 0.5, 
+                      color: 'text.secondary', 
+                      fontStyle: 'italic',
+                      pl: 1,
+                      borderLeft: '2px solid',
+                      borderColor: 'divider',
+                    }}
+                  >
+                    {getColumnDescription(column.name)}
+                  </Typography>
+                )}
+                {columnMeta.length > 0 && (
+                  <Box sx={{ mt: 1, width: '100%' }}>
+                    <List dense disablePadding>
+                      {columnMeta.map((meta, metaIndex) => (
+                        <ListItem 
+                          key={`${column.name}-meta-${meta.key || metaIndex}`} 
+                          sx={{ py: 0 }}
+                        >
+                          <ListItemText
+                            primary={
+                              <Typography variant="caption" color="text.secondary">
+                                {meta.key}: {meta.value}
+                              </Typography>
+                            }
                           />
-                        )}
-                      </Box>
-                    </TableCell>
-                    <TableCell>
-                      <Typography variant="body2" component="span">
-                        {formatDataType(column)}
-                      </Typography>
-                    </TableCell>
-                    <TableCell>
-                      <Typography variant="body2" color="text.secondary" component="span">
-                        {column.description || 'No description'}
-                      </Typography>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </TableContainer>
+                        </ListItem>
+                      ))}
+                    </List>
+                  </Box>
+                )}
+              </ListItem>
+            );
+          }).filter(Boolean)}
+        </List>
+
+        {table.metadata && table.metadata.length > 0 && (
+          <>
+            <Divider sx={{ my: 2 }} />
+            <Typography variant="subtitle1" gutterBottom>
+              Metadata
+            </Typography>
+            <List dense>
+              {table.metadata
+                .filter(meta => !meta.key.startsWith('KBC.'))
+                .map((meta) => (
+                <ListItem key={`table-meta-${meta.key}`}>
+                  <ListItemText
+                    primary={meta.key}
+                    secondary={meta.value}
+                  />
+                </ListItem>
+              ))}
+            </List>
+          </>
         )}
       </Box>
-    </Box>
+    </Drawer>
   );
 }; 

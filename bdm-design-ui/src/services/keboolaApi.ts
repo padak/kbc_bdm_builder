@@ -102,11 +102,38 @@ class KeboolaApiService {
     if (!bucketId) throw new Error('Bucket ID is required');
     
     try {
-      const response = await this.api.get(`/v2/storage/buckets/${bucketId}/tables`);
+      // Get tables with all details in one call
+      const response = await this.api.get(`/v2/storage/buckets/${bucketId}/tables?include=columns,metadata,columnMetadata`);
       if (!response.data) {
         throw new Error('No data received from Keboola API');
       }
-      return response.data;
+      
+      // Process the response to ensure proper column structure
+      const tables = response.data.map((table: any) => {
+        // Ensure columns is an array and has proper structure
+        const columns = Array.isArray(table.columns) 
+          ? table.columns.map((col: any) => ({
+              name: col.name || '',
+              type: col.type || 'STRING',
+              basetype: col.basetype || col.type || 'STRING',
+              definition: {
+                type: col.type || 'STRING',
+                nullable: col.nullable !== false,
+                length: col.length,
+              }
+            }))
+          : [];
+
+        return {
+          ...table,
+          columns,
+          metadata: table.metadata || [],
+          columnMetadata: table.columnMetadata || {},
+        };
+      });
+
+      console.log('Processed tables:', tables);
+      return tables;
     } catch (error) {
       console.error('Failed to fetch tables:', error);
       throw error;
@@ -118,11 +145,35 @@ class KeboolaApiService {
     if (!tableId) throw new Error('Table ID is required');
     
     try {
-      const response = await this.api.get(`/v2/storage/tables/${tableId}`);
+      const response = await this.api.get(`/v2/storage/tables/${tableId}?include=columns,metadata,columnMetadata`);
       if (!response.data) {
         throw new Error('No data received from Keboola API');
       }
-      return response.data;
+
+      // Process the response to ensure proper column structure
+      const table = response.data;
+      const columns = Array.isArray(table.columns) 
+        ? table.columns.map((col: any) => ({
+            name: col.name || '',
+            type: col.type || 'STRING',
+            basetype: col.basetype || col.type || 'STRING',
+            definition: {
+              type: col.type || 'STRING',
+              nullable: col.nullable !== false,
+              length: col.length,
+            }
+          }))
+        : [];
+
+      const processedTable = {
+        ...table,
+        columns,
+        metadata: table.metadata || [],
+        columnMetadata: table.columnMetadata || {},
+      };
+
+      console.log('Processed table detail:', processedTable);
+      return processedTable;
     } catch (error) {
       console.error('Failed to fetch table detail:', error);
       throw error;

@@ -1,76 +1,46 @@
-import React from 'react';
-import { ThemeProvider, createTheme, CssBaseline, Box, CircularProgress, Typography } from '@mui/material';
+import React, { useState, useEffect } from 'react';
+import { Box, ThemeProvider, createTheme } from '@mui/material';
 import { KeboolaConfigDialog } from './components/KeboolaConfig';
 import { BDMDesigner } from './components/BDMDesigner';
 import { useBDMStore } from './store/bdmStore';
+import { KeboolaTable } from './services/keboolaApi';
 
 const theme = createTheme({
   palette: {
-    mode: 'light',
     primary: {
       main: '#2196f3',
     },
     secondary: {
       main: '#f50057',
     },
-    background: {
-      default: '#f5f5f5',
-      paper: '#ffffff',
-    },
-  },
-  typography: {
-    fontFamily: '"Roboto", "Helvetica", "Arial", sans-serif',
   },
 });
 
-function App() {
-  const { isConnected, buckets, error } = useBDMStore();
-  const [configOpen, setConfigOpen] = React.useState(!isConnected);
+const App: React.FC = () => {
+  const [configOpen, setConfigOpen] = useState(true);
+  const { isConnected, tables, isLoading, error } = useBDMStore();
 
-  const renderContent = () => {
-    if (!isConnected) {
-      return (
-        <KeboolaConfigDialog
-          open={configOpen}
-          onClose={() => setConfigOpen(false)}
-        />
-      );
+  useEffect(() => {
+    if (isConnected) {
+      setConfigOpen(false);
     }
+  }, [isConnected]);
 
-    if (!buckets || buckets.length === 0) {
-      return (
-        <Box
-          sx={{
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'center',
-            height: '100vh',
-            gap: 2,
-          }}
-        >
-          <CircularProgress />
-          <Typography>Loading Keboola data...</Typography>
-          {error && (
-            <Typography color="error">
-              {error}
-            </Typography>
-          )}
-        </Box>
-      );
-    }
-
-    return <BDMDesigner />;
+  const handleClose = () => {
+    setConfigOpen(false);
   };
 
   return (
     <ThemeProvider theme={theme}>
-      <CssBaseline />
-      <Box sx={{ height: '100vh', width: '100vw' }}>
-        {renderContent()}
+      <Box sx={{ height: '100vh', bgcolor: 'background.default' }}>
+        {!isConnected || configOpen ? (
+          <KeboolaConfigDialog open={configOpen} onClose={handleClose} />
+        ) : (
+          <BDMDesigner tables={tables} isLoading={isLoading} error={error} />
+        )}
       </Box>
     </ThemeProvider>
   );
-}
+};
 
 export default App; 
