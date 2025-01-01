@@ -12,12 +12,14 @@ import { useCytoscape } from '../hooks/useCytoscape';
 interface BDMGraphProps {
   tables: KeboolaTable[];
   onTableSelect?: (table: KeboolaTable) => void;
+  onCreateRelation?: (sourceTableId: string, targetId: string) => void;
   isDetailsPanelOpen?: boolean;
 }
 
 export const BDMGraph: React.FC<BDMGraphProps> = ({
   tables,
   onTableSelect,
+  onCreateRelation,
   isDetailsPanelOpen = false,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -35,6 +37,11 @@ export const BDMGraph: React.FC<BDMGraphProps> = ({
         if (table) {
           onTableSelect(table);
         }
+      }
+    },
+    onCreateEdge: (sourceId, targetId) => {
+      if (onCreateRelation) {
+        onCreateRelation(sourceId, targetId);
       }
     },
   });
